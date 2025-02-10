@@ -1,0 +1,54 @@
+# .gitignore
+
+secrets.yaml
+display-test.yaml
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
+
+# Ignore virtual environment directories
+venv/
+env/
+
+# Ignore VS Code settings
+.vscode/
+
+# Ignore ESPHome build files
+build/
+
+# Ignore log files
+*.log
+
+# Ignore compiled files
+*.o
+*.so
+*.out
+
+# Ignore node_modules if using Node.js
+node_modules/
+
+# Ignore coverage reports
+coverage/
+*.cover
+*.coverage
+*.cov
+*.gcov
+
+# Ignore temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
+*.sublime-project
+*.sublime-workspace
+
+# Ignore IDE specific files
+.idea/
+*.iml

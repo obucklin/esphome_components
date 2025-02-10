@@ -1,0 +1,15 @@
+manifest:
+  name: "GDEP073E01 E-Paper Display"
+  description: "Custom component for GDEP073E01 7.3\" e-paper display"
+  version: "1.0.0"
+  author: "bucky"
+  codeowners:
+    - "@obucklin"
+  requires_api: "2023.12.0"
+  requirements:
+    - espressif32>=5.0.0
+    - esphome>=2023.12.0
+  dependencies: 
+    - "display"
+    - "spi"
+    - "gpio"
