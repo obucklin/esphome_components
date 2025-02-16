@@ -672,7 +672,7 @@ class WaveshareEPaper7P5InBV3BWR : public WaveshareEPaperBWR {
     }
   };
   void draw_absolute_pixel_internal(int x, int y, Color color) override;
-  uint32_t get_buffer_length_() override;
+  uint32_t get_buffer_length_();
   void init_display_();
 };
 
@@ -680,7 +680,27 @@ class WaveshareEPaper7P5InBV3BWR : public WaveshareEPaperBWR {
 
 class GoodDisplayGdep073e01 : public WaveshareEPaper {
   public:
-   bool wait_until_idle_() override;
+  #define PSR         0x00
+#define PWRR         0x01
+#define POF         0x02
+#define POFS        0x03
+#define PON         0x04
+#define BTST1       0x05
+#define BTST2       0x06
+#define DSLP        0x07
+#define BTST3       0x08
+#define DTM         0x10
+#define DRF         0x12
+#define PLL         0x30
+#define CDI         0x50
+#define TCON        0x60
+#define TRES        0x61
+#define REV         0x70
+#define VDCS        0x82
+#define T_VDCS      0x84
+#define PWS         0xE3
+
+   bool wait_until_idle_();
  
    void initialize() override;
  
@@ -703,6 +723,9 @@ class GoodDisplayGdep073e01 : public WaveshareEPaper {
  
    int get_height_internal() override;
  
+   uint32_t get_buffer_length_() override;
+   void draw_absolute_pixel_internal(int x, int y, Color color) override;
+
    void reset_() {
      if (this->reset_pin_ != nullptr)
      {
@@ -716,7 +739,7 @@ class GoodDisplayGdep073e01 : public WaveshareEPaper {
    }
    void init_display_();
 
-   void get_color()
+   unsigned char get_color(Color color);
 
 
  };

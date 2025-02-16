@@ -53,3 +53,4 @@ coverage/
 .idea/
 *.iml
 c3.yaml
+display-test-no-custom.yaml

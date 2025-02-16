@@ -3514,7 +3514,7 @@ static const uint8_t PARTIAL_UPD_2IN9_LUT[PARTIAL_UPD_2IN9_LUT_SIZE] =
       this->data(0x2F);
 
       this->command(0x04); // PWR on
-      wait_until_idle();
+      wait_until_idle_();
     };
 
 
