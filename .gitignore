@@ -52,3 +52,4 @@ coverage/
 # Ignore IDE specific files
 .idea/
 *.iml
+c3.yaml
