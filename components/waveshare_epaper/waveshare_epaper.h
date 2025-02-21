@@ -761,8 +761,8 @@ namespace esphome
         this->command(0x02); // Power off
         this->data(0x00);
         this->wait_until_idle_();
-        this->command(0x07); // Deep sleep
-        this->data(0xA5);
+        // this->command(0x07); // Deep sleep
+        // this->data(0xA5);
       }
 
       void clear_screen();
