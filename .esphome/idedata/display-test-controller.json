@@ -9,7 +9,9 @@
   ],
   "defines": [
     "PLATFORMIO=60116",
-    "ARDUINO_ESP32C3_DEV",
+    "ARDUINO_XIAO_ESP32C3",
+    "ARDUINO_USB_MODE=1",
+    "ARDUINO_USB_CDC_ON_BOOT=1",
     "ARDUINO_USB_CDC_ON_BOOT=1",
     "ARDUINO_USB_MODE=1",
     "ESPHOME_LOG_LEVEL=ESPHOME_LOG_LEVEL_DEBUG",
@@ -29,8 +31,8 @@
     "ESP32",
     "F_CPU=160000000L",
     "ARDUINO=10812",
-    "ARDUINO_VARIANT=\"esp32c3\"",
-    "ARDUINO_BOARD=\"Espressif ESP32-C3-DevKitM-1\"",
+    "ARDUINO_VARIANT=\"XIAO_ESP32C3\"",
+    "ARDUINO_BOARD=\"Seeed Studio XIAO ESP32C3\"",
     "ARDUINO_PARTITION_partitions"
   ],
   "includes": {
@@ -231,7 +233,7 @@
       "/Users/obucklin/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/include/fb_gfx/include",
       "/Users/obucklin/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/qio_qspi/include",
       "/Users/obucklin/.platformio/packages/framework-arduinoespressif32/cores/esp32",
-      "/Users/obucklin/.platformio/packages/framework-arduinoespressif32/variants/esp32c3"
+      "/Users/obucklin/.platformio/packages/framework-arduinoespressif32/variants/XIAO_ESP32C3"
     ],
     "compatlib": [
       "/Users/obucklin/Documents/repos/esphome_components/.esphome/build/display-test-controller/.piolibdeps/display-test-controller/AsyncTCP-esphome/src",

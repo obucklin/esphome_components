@@ -1,0 +1,49 @@
+INFO ESPHome 2024.12.4
+INFO Reading configuration /Users/obucklin/Documents/repos/esphome_components/display-test.yaml...
+INFO Generating C++ source...
+INFO Compiling app...
+********************************************************************************
+Obsolete PIO Core v6.1.16 is used (previous was 6.1.17)
+Please remove multiple PIO Cores from a system:
+https://docs.platformio.org/en/latest/core/installation/troubleshooting.html
+********************************************************************************
+Processing display-c3 (board: esp32-c3-devkitm-1; framework: arduino; platform: platformio/espressif32@5.4.0)
+--------------------------------------------------------------------------------
+HARDWARE: ESP32C3 160MHz, 320KB RAM, 4MB Flash
+ - toolchain-riscv32-esp @ 8.4.0+2021r2-patch5
+Dependency Graph
+|-- AsyncTCP-esphome @ 2.1.4
+|-- WiFi @ 2.0.0
+|-- FS @ 2.0.0
+|-- Update @ 2.0.0
+|-- ESPAsyncWebServer-esphome @ 3.2.2
+|-- DNSServer @ 2.0.0
+|-- ESPmDNS @ 2.0.0
+|-- noise-c @ 0.1.6
+|-- SPI @ 2.0.0
+Compiling .pioenvs/display-c3/src/esphome/components/waveshare_epaper/gdep073e01.cpp.o
+Compiling .pioenvs/display-c3/src/esphome/components/waveshare_epaper/waveshare_213v3.cpp.o
+Compiling .pioenvs/display-c3/src/esphome/components/waveshare_epaper/waveshare_epaper.cpp.o
+Compiling .pioenvs/display-c3/src/main.cpp.o
+Linking .pioenvs/display-c3/firmware.elf
+RAM:   [=         ]  11.2% (used 36676 bytes from 327680 bytes)
+Flash: [=====     ]  51.3% (used 942088 bytes from 1835008 bytes)
+Building .pioenvs/display-c3/firmware.bin
+Creating esp32c3 image...
+Successfully created esp32c3 image.
+esp32_create_combined_bin([".pioenvs/display-c3/firmware.bin"], [".pioenvs/display-c3/firmware.elf"])
+Wrote 0xf9900 bytes to file /Users/obucklin/Documents/repos/esphome_components/.esphome/build/display-c3/.pioenvs/display-c3/firmware.factory.bin, ready to flash to offset 0x0
+esp32_copy_ota_bin([".pioenvs/display-c3/firmware.bin"], [".pioenvs/display-c3/firmware.elf"])
+========================= [SUCCESS] Took 4.02 seconds =========================
+INFO Successfully compiled program.
+INFO Connecting to 192.168.178.69 port 3232...
+INFO Connected to 192.168.178.69
+INFO Uploading /Users/obucklin/Documents/repos/esphome_components/.esphome/build/display-c3/.pioenvs/display-c3/firmware.bin (956672 bytes)
+Uploading: [============================================================] 100% Done...
+
+INFO Upload took 8.72 seconds, waiting for result...
+INFO OTA successful
+INFO Successfully uploaded program.
+INFO Starting log output from 192.168.178.69 using esphome API
+WARNING Can't connect to ESPHome API for display-c3 @ 192.168.178.69: Error connecting to [AddrInfo(family=<AddressFamily.AF_INET: 2>, type=<SocketKind.SOCK_STREAM: 1>, proto=6, sockaddr=IPv4Sockaddr(address='192.168.178.69', port=6053))]: [Errno 61] Connect call failed ('192.168.178.69', 6053) (SocketAPIError)
+INFO Trying to connect to display-c3 @ 192.168.178.69 in the background

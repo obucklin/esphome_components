@@ -19,11 +19,11 @@ logger:
 
 api:
   encryption:
-    key: ""
+    key: "HhpDctFSVQFcpkPbjk5ljZ3ux3IKbAY8/fft3AoJJ40="
 
 ota:
   - platform: esphome
-    password: ""
+    password: "26cb5bd41399195a2429ea324e4139f9"
 
 wifi:
   ssid: !secret wifi_ssid
@@ -39,12 +39,12 @@ spi:
   mosi_pin: GPIO19  # MOSI is required
 
 display:
-  - platform: gdep073e01
+  - platform: waveshare_epaper
+    model: 7.50inV2
     cs_pin: GPIO0
     dc_pin: GPIO1
     reset_pin: GPIO3
     busy_pin: GPIO2  # Input pin
-    full_update_every: 30
     lambda: |-
       it.fill(esphome::display::COLOR_ON);
       

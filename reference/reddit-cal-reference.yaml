@@ -1,0 +1,298 @@
+# Substitutions for device name and friendly name
+substitutions:
+  name: esphome-web-ffffff  # Unique device name
+  friendly_name: 4.2 E-Paper Display  # User-friendly name for the device
+
+esphome:
+  name: ${name}  # Use the unique device name
+  friendly_name: ${friendly_name}  # Use the user-friendly name
+  min_version: 2024.6.0  # Minimum ESPHome version required
+  name_add_mac_suffix: false  # Do not append MAC address to the device name
+  project:
+    name: esphome.web  # Project name
+    version: '1.0'  # Project version
+  on_boot:
+    priority: -100  # Low priority to ensure other components initialize first
+    then:
+      - logger.log: "Device booting and waiting for MQTT updates."  # Log boot message
+      - if:
+          condition:
+            lambda: 'return id(cached_agenda_json).empty();'  # Check if cached agenda data is empty
+          then:
+            - logger.log: "No cached agenda JSON found, showing default message."  # Log if no cached data
+            - component.update: waveshare_display  # Update display with default message
+          else:
+            - logger.log: "Rendering cached agenda JSON on boot."  # Log if cached data exists
+            - component.update: waveshare_display  # Update display with cached data
+
+      - logger.log: "Device booting. OTA Mode active for 5 minutes."  # Log OTA mode activation
+      - deep_sleep.prevent: deep_sleep_control  # Prevent deep sleep for 5 minutes to allow OTA updates
+      - delay: 5min  # OTA window duration
+      - logger.log: "Exiting OTA mode, entering normal sleep cycle."  # Log OTA mode exit
+
+# ESP32 board configuration
+esp32:
+  board: esp32dev  # ESP32 development board
+  framework:
+    type: arduino  # Use Arduino framework
+
+# Enable logging
+logger:
+
+# Enable OTA updates
+ota:
+  - platform: esphome
+    password: !secret ota_key  # OTA password stored in secrets
+
+# Wi-Fi configuration
+wifi:
+  ssid: !secret wifi_ssid  # Wi-Fi SSID stored in secrets
+  password: !secret wifi_password  # Wi-Fi password stored in secrets
+  
+  # Enable fallback hotspot (captive portal) in case Wi-Fi connection fails
+  ap:
+    ssid: "Fallback ${friendly_name}"  # Fallback hotspot SSID
+    password: "${fallback_hotspot_password}"  # Fallback hotspot password
+
+captive_portal:
+
+# MQTT configuration for subscribing to sleep duration, OTA, and calendar events
+mqtt:
+  discovery: true  # Enable MQTT discovery
+  broker: !secret mqtt_host  # MQTT broker address stored in secrets
+  username: !secret mqtt_user  # MQTT username stored in secrets
+  password: !secret mqtt_password  # MQTT password stored in secrets
+
+  on_message:
+    # Subscribe to the sleep duration MQTT topic
+    - topic: "homeassistant/calendar/sleep_duration"
+      then:
+        - lambda: |-
+            int new_sleep_duration = atoi(x.c_str());
+            id(sleep_duration_seconds) = new_sleep_duration;
+            ESP_LOGD("sleep", "Received new sleep duration: %d seconds", new_sleep_duration);
+
+    # Subscribe to calendar event updates
+    - topic: "homeassistant/calendar/event"
+      then:
+        - lambda: |-
+            std::string agenda_json = x.c_str();
+            ESP_LOGD("agenda", "Received JSON: %s", agenda_json.c_str());
+            
+            // Cache the received JSON
+            id(cached_agenda_json) = agenda_json;
+
+            const size_t capacity = JSON_OBJECT_SIZE(10) + JSON_ARRAY_SIZE(10) + 10 * JSON_OBJECT_SIZE(4);
+            StaticJsonDocument<capacity> doc;
+
+            DeserializationError error = deserializeJson(doc, agenda_json);
+            if (error) {
+              ESP_LOGE("agenda", "Failed to parse JSON: %s", agenda_json.c_str());
+              return;
+            }
+
+            // Update the display if parsing was successful
+            id(waveshare_display).update();
+
+    # Subscribe to OTA prevention topic (for OTA mode)
+    - topic: "homeassistant/calendar/ota_mode"
+      payload: 'ON'
+      then:
+        - logger.log: "OTA Mode ON - Deep Sleep prevented."
+        - deep_sleep.prevent: deep_sleep_control
+
+    # Subscribe to the sleep mode topic (re-enable deep sleep)
+    - topic: "homeassistant/calendar/sleep_mode"
+      payload: 'ON'
+      then:
+        - logger.log: "Sleep Mode ON - Entering deep sleep now."
+        - deep_sleep.enter: deep_sleep_control
+
+# Global variables for dynamic sleep duration and cached agenda JSON
+globals:
+  - id: sleep_duration_seconds  # Variable to store sleep duration
+    type: int
+    restore_value: no
+    initial_value: '1800'  # Default sleep duration of 30 minutes (1800 seconds)
+
+  - id: cached_agenda_json  # Variable to cache the last received calendar events
+    type: std::string
+    restore_value: yes
+    initial_value: ""
+
+# Font configuration for the display
+font:
+  - file: gfonts://Verdana
+    id: verdana
+    size: 22
+    glyphs: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Â¡Â¢Â£Â¤Â¥Â¦Â§Â¨Â©ÂªÂ«Â¬Â­Â®Â¯Â°Â±Â²Â³Â´ÂµÂ¶Â·Â¸Â¹ÂºÂ»Â¼Â½Â¾Â¿Ã€ÃÃ‚ÃƒÃ„Ã…Ã†Ã‡ÃˆÃ‰ÃŠÃ‹ÃŒÃÃŽÃÃÃ‘Ã’Ã“Ã”Ã•Ã–Ã˜Ã™ÃšÃ›ÃœÃÃžÃŸÃ Ã¡Ã¢Ã£Ã¤Ã¥Ã¦Ã§Ã¨Ã©ÃªÃ«Ã¬Ã­Ã®Ã¯Ã°Ã±Ã²Ã³Ã´ÃµÃ¶Ã¸Ã¹ÃºÃ»Ã¼Ã½Ã¾Ã¿"
+
+  - file: gfonts://Verdana
+    id: verdana_big
+    size: 26
+    glyphs: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Â¡Â¢Â£Â¤Â¥Â¦Â§Â¨Â©ÂªÂ«Â¬Â­Â®Â¯Â°Â±Â²Â³Â´ÂµÂ¶Â·Â¸Â¹ÂºÂ»Â¼Â½Â¾Â¿Ã€ÃÃ‚ÃƒÃ„Ã…Ã†Ã‡ÃˆÃ‰ÃŠÃ‹ÃŒÃÃŽÃÃÃ‘Ã’Ã“Ã”Ã•Ã–Ã˜Ã™ÃšÃ›ÃœÃÃžÃŸÃ Ã¡Ã¢Ã£Ã¤Ã¥Ã¦Ã§Ã¨Ã©ÃªÃ«Ã¬Ã­Ã®Ã¯Ã°Ã±Ã²Ã³Ã´ÃµÃ¶Ã¸Ã¹ÃºÃ»Ã¼Ã½Ã¾Ã¿"
+
+  - file: gfonts://Verdana
+    id: verdana_small
+    size: 18
+    glyphs: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~Â¡Â¢Â£Â¤Â¥Â¦Â§Â¨Â©ÂªÂ«Â¬Â­Â®Â¯Â°Â±Â²Â³Â´ÂµÂ¶Â·Â¸Â¹ÂºÂ»Â¼Â½Â¾Â¿Ã€ÃÃ‚ÃƒÃ„Ã…Ã†Ã‡ÃˆÃ‰ÃŠÃ‹ÃŒÃÃŽÃÃÃ‘Ã’Ã“Ã”Ã•Ã–Ã˜Ã™ÃšÃ›ÃœÃÃžÃŸÃ Ã¡Ã¢Ã£Ã¤Ã¥Ã¦Ã§Ã¨Ã©ÃªÃ«Ã¬Ã­Ã®Ã¯Ã°Ã±Ã²Ã³Ã´ÃµÃ¶Ã¸Ã¹ÃºÃ»Ã¼Ã½Ã¾Ã¿"
+    
+# SPI configuration for the display
+spi:
+  clk_pin: 13
+  mosi_pin: 14
+
+# Time configuration using SNTP
+time:
+  - platform: sntp
+    id: esptime
+    servers:
+      - time.nist.gov  # address of the SNTP server
+    timezone: "CET-1CEST,M3.5.0,M10.5.0/3"  # Timezone for Central Europe
+
+# Display logic for rendering calendar data
+display:
+  - platform: waveshare_epaper
+    id: waveshare_display
+    cs_pin: 15
+    dc_pin: 27
+    busy_pin: 25
+    reset_pin: 26
+    model: 4.20in
+    update_interval: never
+    lambda: |-
+      const int display_width = 400;
+      const int display_height = 300;
+      const int char_width = 12;
+      const int max_chars_per_line = display_width / char_width;
+      const int line_height = 26;
+      const int max_lines = display_height / line_height;
+
+      // Function to wrap text based on display width
+      auto wrap_text = [&](std::string text, int max_chars) -> std::vector<std::string> {
+        std::vector<std::string> lines;
+        while (text.length() > max_chars) {
+          size_t break_pos = text.rfind(' ', max_chars);
+          if (break_pos == std::string::npos) {
+            break_pos = max_chars;
+          }
+          lines.push_back(text.substr(0, break_pos));
+          text = text.substr(break_pos + 1);
+        }
+        lines.push_back(text);
+        return lines;
+      };
+
+      std::string agenda_json = id(cached_agenda_json);
+
+      if (!agenda_json.empty()) {
+        const size_t capacity = JSON_OBJECT_SIZE(10) + JSON_ARRAY_SIZE(10) + 10 * JSON_OBJECT_SIZE(4);
+        StaticJsonDocument<capacity> doc;
+
+        DeserializationError error = deserializeJson(doc, agenda_json);
+
+        if (error) {
+          it.printf(10, 40, id(verdana_small), "Failed to parse JSON.");  # Display error if JSON parsing fails
+          ESP_LOGE("agenda", "Failed to parse JSON: %s", agenda_json.c_str());
+          return;
+        }
+
+        int y = 10;
+        int total_lines_used = 0;
+
+        // Function to get the day label (Today, Tomorrow, or date)
+        auto get_day_label = [](int day_offset) -> std::string {
+          time_t now = ::time(nullptr);
+          struct tm timeinfo;
+          localtime_r(&now, &timeinfo);
+          timeinfo.tm_mday += day_offset;
+          mktime(&timeinfo);
+
+          const char* days_of_week[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+          char date[24];
+          snprintf(date, sizeof(date), "%s %02d.%02d.%04d",
+                   days_of_week[timeinfo.tm_wday],
+                   timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
+
+          if (day_offset == 0) return "Today";
+          if (day_offset == 1) return "Tomorrow";
+          return std::string(date);
+        };
+
+        // Render calendar events on the display
+        for (JsonPair day_pair : doc.as<JsonObject>()) {
+          int day_offset = atoi(day_pair.key().c_str());
+          std::string day_label = get_day_label(day_offset);
+
+          if (total_lines_used + 1 >= max_lines) {
+            break;
+          }
+
+          it.printf(10, y, id(verdana_big), day_label.c_str());  # Display day label
+          y += line_height;
+          total_lines_used += 1;
+
+          for (JsonObject event : day_pair.value().as<JsonArray>()) {
+            const char* event_summary = event["summary"] | "No Title";
+            std::string event_start = event["start"].as<std::string>();
+            std::string event_end = event["end"].as<std::string>();
+            std::string event_duration = event["duration"].as<std::string>();
+            const char* event_location = event["location"] | nullptr;
+            bool all_day = event["all_day"] | false;
+
+            std::string event_time_summary;
+            if (!all_day) {
+              if (!event_start.empty() && !event_end.empty()) {
+                event_time_summary = event_start + " " + event_summary + " " + event_duration + "h";
+              } else {
+                event_time_summary = event_summary;
+              }
+            } else {
+              event_time_summary = event_summary;
+            }
+
+            std::vector<std::string> lines = wrap_text(event_time_summary, max_chars_per_line);
+
+            if (total_lines_used + lines.size() >= max_lines) {
+              break;
+            }
+
+            for (auto &line : lines) {
+              it.printf(10, y, id(verdana), line.c_str());  # Display event summary
+              y += line_height;
+              total_lines_used += 1;
+            }
+
+            if (event_location != nullptr && strlen(event_location) > 0) {
+              if (total_lines_used + 1 >= max_lines) {
+                break;
+              }
+              it.printf(10, y, id(verdana_small), ("Location: " + std::string(event_location)).c_str());  # Display event location
+              y += line_height;
+              total_lines_used += 1;
+            }
+          }
+
+          y += line_height;
+          total_lines_used += 1;
+
+          if (total_lines_used >= max_lines) {
+            break;
+          }
+        }
+
+        if (total_lines_used < max_lines) {
+          it.printf(10, y, id(verdana_small), "...");  # Display ellipsis if there's more content
+        }
+
+      } else {
+        it.printf(10, 40, id(verdana_small), "No agenda received.");  # Display message if no agenda data is received
+        ESP_LOGD("agenda", "No agenda received.");
+      }
+
+# Deep sleep configuration with dynamic sleep duration
+deep_sleep:
+  id: deep_sleep_control
+  run_duration: 60s  # Device stays awake for 60 seconds to update display and process MQTT
+  sleep_duration: 30min  # Default sleep duration, overwritten by MQTT value

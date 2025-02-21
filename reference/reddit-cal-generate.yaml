@@ -1,0 +1,140 @@
+alias: Calendar to MQTT
+description: Publishes calendar events and sleep duration to MQTT
+trigger:
+  - platform: time_pattern
+    minutes: "/30"  # Trigger every 30 minutes
+condition:
+  - condition: time
+    after: "05:30:00"  # Only run between 5:30 AM
+    before: "23:00:00"  # and 11:00 PM
+action:
+  - service: calendar.get_events
+    data:
+      duration:
+        hours: 168  # Fetch events for the next 7 days
+        minutes: 0
+        seconds: 0
+    response_variable: agenda_family  # Store family calendar events in this variable
+    target:
+      entity_id: calendar.familie_paul_cloud  # Family calendar entity
+    continue_on_error: true  # Continue even if there's an error
+
+  - service: calendar.get_events
+    data:
+      duration:
+        hours: 48  # Fetch events for the next 2 days
+        minutes: 0
+        seconds: 0
+    response_variable: agenda_waste  # Store waste calendar events in this variable
+    target:
+      entity_id:
+        - calendar.abfall_io_abfallplus_3  # Waste calendar entity
+    continue_on_error: true  # Continue even if there's an error
+
+  - service: mqtt.publish
+    data:
+      topic: homeassistant/calendar/event  # MQTT topic for calendar events
+      payload: >-
+        {% set today_start = today_at('00:00').replace(tzinfo=None) %}  # Start of today
+        {% set today_end = today_at('23:59:59').replace(tzinfo=None) %}  # End of today
+        {% set tomorrow_start = (now() + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None) %}  # Start of tomorrow
+        {% set tomorrow_end = (now() + timedelta(days=1)).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=None) %}  # End of tomorrow
+        {% set day_names = ['d0', 'd1', 'd2', 'd3', 'd4', 'd5'] %}  # Day offsets for the next 6 days
+        {% set ns = namespace(d0=[], d1=[], d2=[], d3=[], d4=[], d5=[]) %}  # Namespace to store events by day
+
+        {% set fam_dict = agenda_family.get('calendar.familie_paul_cloud', {}) %}  # Get family calendar events
+        {% set fam_events = fam_dict.get('events', []) %}  # Extract events from family calendar
+
+        {% if agenda_waste is defined %}  # Check if waste calendar events are available
+          {% set waste_dict = agenda_waste.get('calendar.abfall_io_abfallplus_3', {}) %}  # Get waste calendar events
+          {% set waste_events = waste_dict.get('events', []) %}  # Extract events from waste calendar
+        {% else %}
+          {% set waste_events = [] %}  # If no waste events, use an empty list
+        {% endif %}
+
+        {% set events = fam_events + waste_events %}  # Combine family and waste events
+        {% set sorted_events = events | sort(attribute='start') %}  # Sort events by start time
+        {% set event_counter = namespace(count=0) %}  # Counter to limit the number of events processed
+
+        {% for event in sorted_events %}  # Loop through sorted events
+          {% if event_counter.count >= 4 %}  # Limit to 4 events
+            {% break %}
+          {% endif %}
+          {% set start_time = event.start | as_datetime %}  # Convert event start time to datetime
+          {% set start_naive = start_time.replace(tzinfo=None) %}  # Remove timezone info
+          {% set end_time = event.end | as_datetime if event.end else None %}  # Convert event end time to datetime
+          {% set all_day = start_time.hour == 0 and start_time.minute == 0 and end_time and end_time.hour == 0 and end_time.minute == 0 %}  # Check if it's an all-day event
+
+          {% for offset in range(6) %}  # Loop through the next 6 days
+            {% set day_start = (now() + timedelta(days=offset)).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None) %}  # Start of the day
+            {% set day_end = (now() + timedelta(days=offset)).replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=None) %}  # End of the day
+
+            {% if day_start <= start_naive <= day_end %}  # Check if the event falls within this day
+              {% set key_name = day_names[offset] %}  # Get the day key (d0, d1, etc.)
+              {% set start_time_str = start_time.strftime('%H:%M') if not all_day else '' %}  # Format start time
+              {% set end_time_str = end_time.strftime('%H:%M') if end_time and not all_day else '' %}  # Format end time
+              {% set duration_display = '' %}  # Initialize duration display
+
+              {% if not all_day and end_time %}  # Calculate duration for non-all-day events
+                {% set duration_minutes = (end_time - start_time).total_seconds() // 60 %}
+                {% set duration_display = '{}:{:02}'.format((duration_minutes // 60) | int, (duration_minutes % 60) | int) %}
+              {% endif %}
+
+              {% set event_info = {  # Create event info dictionary
+                'summary': event.summary,  # Event title
+                'start': start_time_str,  # Start time
+                'end': end_time_str,  # End time
+                'location': event.location if event.location is not undefined else '',  # Event location
+                'all_day': all_day,  # Whether it's an all-day event
+                'duration': duration_display  # Event duration
+              } %}
+
+              {% if key_name == 'd1' %}  # Assign event to the correct day
+                {% set ns.d1 = ns.d1 + [event_info] %}
+              {% elif key_name == 'd2' %}
+                {% set ns.d2 = ns.d2 + [event_info] %}
+              {% elif key_name == 'd3' %}
+                {% set ns.d3 = ns.d3 + [event_info] %}
+              {% elif key_name == 'd4' %}
+                {% set ns.d4 = ns.d4 + [event_info] %}
+              {% elif key_name == 'd5' %}
+                {% set ns.d5 = ns.d5 + [event_info] %}
+              {% elif key_name == 'd0' %}
+                {% set ns.d0 = ns.d0 + [event_info] %}
+              {% endif %}
+
+              {% set event_counter.count = event_counter.count + 1 %}  # Increment event counter
+            {% endif %}
+          {% endfor %}
+        {% endfor %}
+
+        {% set json_output = [] %}  # Initialize JSON output
+        {% if ns.d0 | length > 0 %}  # Add events for day 0 (today)
+          {% set json_output = json_output + ['"0": ' ~ ns.d0 | to_json] %}
+        {% endif %}
+        {% if ns.d1 | length > 0 %}  # Add events for day 1 (tomorrow)
+          {% set json_output = json_output + ['"1": ' ~ ns.d1 | to_json] %}
+        {% endif %}
+        {% if ns.d2 | length > 0 %}  # Add events for day 2
+          {% set json_output = json_output + ['"2": ' ~ ns.d2 | to_json] %}
+        {% endif %}
+        {% if ns.d3 | length > 0 %}  # Add events for day 3
+          {% set json_output = json_output + ['"3": ' ~ ns.d3 | to_json] %}
+        {% endif %}
+        {% if ns.d4 | length > 0 %}  # Add events for day 4
+          {% set json_output = json_output + ['"4": ' ~ ns.d4 | to_json] %}
+        {% endif %}
+        {% if ns.d5 | length > 0 %}  # Add events for day 5
+          {% set json_output = json_output + ['"5": ' ~ ns.d5 | to_json] %}
+        {% endif %}
+
+        {{ '{' ~ json_output | join(', ') ~ '}' }}  # Combine all days into a single JSON object
+      retain: true  # Retain the MQTT message
+
+  - service: mqtt.publish
+    data:
+      topic: homeassistant/calendar/sleep_duration  # MQTT topic for sleep duration
+      payload: "1800"  # Default sleep duration (30 minutes in seconds)
+      retain: true  # Retain the MQTT message
+
+mode: single  # Ensure only one instance of this automation runs at a time
