@@ -11,22 +11,9 @@ namespace esphome
   namespace waveshare_epaper
   {
 
+
+
     static const char *const TAG = "gdep073e01";
-
-
-    void GoodDisplayGdep073e01::init_internal_(uint32_t buffer_length) {
-      ExternalRAMAllocator<uint8_t> allocator(ExternalRAMAllocator<uint8_t>::ALLOW_FAILURE);
-      this->buffer_0 = allocator.allocate(buffer_length/2);
-      this->buffer_1 = allocator.allocate(buffer_length/2);
-      if (this->buffer_0   == nullptr || this->buffer_1 == nullptr) {
-        ESP_LOGD(TAG, "Could not allocate buffer for display!");
-        return;
-      }
-      this->clear();
-    }
-
-
- 
 
     uint32_t GoodDisplayGdep073e01::idle_timeout_() { return 20000; }
 
@@ -34,12 +21,11 @@ namespace esphome
     {
       ESP_LOGD("TAG", "initializing GoodDisplayGdep073e01");
       this->init_display_();
-      this->init_internal_(this->get_buffer_length_());
-      for (int i = 0; i < get_buffer_length_()/2; i++)
+      for (int i = 0; i < get_buffer_length_(); i++)
       {
-        this->buffer_0[i] = 0x00;
-        this->buffer_1[i] = 0x00;
+        this->buffer_[i] = 0x00;
       }
+      ESP_LOGD("TAG", "sample buffer = %d", this->buffer_[342]);
     }
 
     bool GoodDisplayGdep073e01::wait_until_idle_()
@@ -260,14 +246,7 @@ namespace esphome
 
       const uint32_t pos = (x + (y * (this->get_width_internal()))) / 2u;
       unsigned char cv = this->get_color(color);
-      unsigned char temp_byte = 0x00;
-
-      if (y < this->get_height_internal()/2)
-        temp_byte = this->buffer_0[pos];
-      else
-        temp_byte = this->buffer_1[pos];
-
-
+      unsigned char temp_byte = this->buffer_[pos];
       if ((temp_byte & 0xF0) == 0xF0) //if top nibble is xF
         temp_byte &= 0x1F;            //set top nibble to default white 0x10
       if ((temp_byte & 0x0F) == 0x0F) //if bottom nibble is xF
@@ -283,10 +262,7 @@ namespace esphome
         temp_byte &= 0x0F;          //clear top nibble
         temp_byte |= (cv << 4);     //set top nibble
       }
-      if (y < this->get_height_internal()/2)
-        this->buffer_0[pos] = temp_byte;
-      else
-        this->buffer_1[pos] = temp_byte;
+      this->buffer_[pos] = temp_byte;
 
       // ESP_LOGD("TAG", "sample buffer_ byte = %02X", this->buffer_[pos]);
     }
@@ -303,12 +279,12 @@ namespace esphome
       this->command(0x10);
       for (int i = 0; i < 192000; i++)
       {
-        if (i < this->get_buffer_length_()/2)
+        if (i < this->get_buffer_length_())
         {
-          this->data(this->buffer_0[i]);
+          this->data(*(this->buffer_ + i));
         }
         else
-          this->data(this->buffer_1[i]);
+          this->data(0x11);
       }
       this->command(0x04);
       this->command(0x12); // Refresh command (DRF in W21)
@@ -482,7 +458,7 @@ namespace esphome
 
     int GoodDisplayGdep073e01::get_width_internal() { return 800; }
 
-    int GoodDisplayGdep073e01::get_height_internal() { return 240; }
+    int GoodDisplayGdep073e01::get_height_internal() { return 320; }
 
     void GoodDisplayGdep073e01::dump_config()
     {
