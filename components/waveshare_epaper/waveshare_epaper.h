@@ -733,20 +733,11 @@ namespace esphome
     {
     public:
       // EPD
-      void EPD_W21_Init(void);
-      void EPD_init(void);
-      void PIC_display(const unsigned char *picData);
-      void BYTES_display(const unsigned char *picData);
-      void EPD_sleep(void);
-      void EPD_refresh(void);
-      void lcd_chkstatus(void);
-      void PIC_display_Clear(void);
-      void EPD_horizontal(void);
-      void EPD_vertical(void);
-      void EPD_display_Byte_Color(unsigned char color);
-      void EPD_init_fast(void);
-      unsigned char Color_get(unsigned char color);
-      // void setup() override;
+      struct ColorCount
+      {
+        uint8_t color;
+        int count;
+      };
 
       bool wait_until_idle_();
 
@@ -764,21 +755,30 @@ namespace esphome
         // this->command(0x07); // Deep sleep
         // this->data(0xA5);
       }
+      void init_internal_(uint32_t buffer_length);
+      uint8_t *buffer_0{nullptr};
+      uint8_t *buffer_1{nullptr};
 
       void clear_screen();
-      void SPI_Write(unsigned char value);
-      void EPD_W21_WriteDATA(unsigned char datas);
-      void EPD_W21_WriteCMD(unsigned char command);
-
-
-    protected:
-      int get_width_internal() override;
-
-      int get_height_internal() override;
+      void display_buffer_();
+      void display_pic_(const unsigned char picData[], int size);
+      void display_fill_color_(unsigned char color);
+      void pixels_to_buffer_(const uint8_t *pixels, int size);
+      std::vector<ColorCount> *compress_pixels_(const uint8_t *pixels, int rows, int cols);
+      void display_compressed_(std::vector<ColorCount> *lines, int rows);      
+      unsigned char get_color(Color color);
       uint32_t idle_timeout_() override;
       uint32_t get_buffer_length_() override;
       void draw_absolute_pixel_internal(int x, int y, Color color) override;
 
+
+      void init_display_();
+      void init_display_fast_();
+      
+
+    protected:
+      int get_width_internal() override;
+      int get_height_internal() override;
       void reset_()
       {
         if (this->reset_pin_ != nullptr)
@@ -791,9 +791,6 @@ namespace esphome
           delay(10); // NOLINT
         }
       }
-      void init_display_();
-
-      unsigned char get_color(Color color);
     };
 
     class WaveshareEPaper7P5InBC : public WaveshareEPaper

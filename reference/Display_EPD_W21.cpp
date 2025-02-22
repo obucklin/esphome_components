@@ -218,21 +218,21 @@ unsigned char Color_get(unsigned char color)
 
 void PIC_display(const unsigned char* picData)
 {
-  unsigned int i,j,k;
+  unsigned int row,col_pair,pixel_this_row;
   unsigned char temp1,temp2;
   unsigned char data_H,data_L,data;
   
 
    //Acep_color(White); //Each refresh must be cleaned first   
   EPD_W21_WriteCMD(0x10);        
-  for(i=0;i<480;i++)
+  for(row=0;row<480;row++)
   { 
-    k=0;
-    for(j=0;j<800/2;j++)
+    pixel_this_row=0;
+    for(col_pair=0;col_pair<800/2;col_pair++)
     {
       
-      temp1=picData[i*800+k++]; 
-      temp2=picData[i*800+k++];
+      temp1=picData[row*800+pixel_this_row++]; 
+      temp2=picData[row*800+pixel_this_row++];
       data_H=Color_get(temp1)<<4;
       data_L=Color_get(temp2);
       data=data_H|data_L;
