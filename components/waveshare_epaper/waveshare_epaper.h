@@ -740,9 +740,8 @@ namespace esphome
       };
 
       bool wait_until_idle_();
-
       void initialize() override;
-
+      void fill(Color color)override;
       void display() override;
 
       void dump_config() override;

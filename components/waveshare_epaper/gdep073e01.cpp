@@ -11,6 +11,13 @@ namespace esphome
   namespace waveshare_epaper
   {
 
+    void GoodDisplayGdep073e01::fill(Color color)
+    {
+      // flip logic
+      const uint8_t fill = get_color(color);
+      for (uint32_t i = 0; i < this->get_buffer_length_(); i++)
+        this->buffer_[i] = fill*36+fill*6+fill;
+    }
 
 
     static const char *const TAG = "gdep073e01";
@@ -21,11 +28,7 @@ namespace esphome
     {
       ESP_LOGD("TAG", "initializing GoodDisplayGdep073e01");
       this->init_display_();
-      for (int i = 0; i < get_buffer_length_(); i++)
-      {
-        this->buffer_[i] = 0x00;
-      }
-      ESP_LOGD("TAG", "sample buffer = %d", this->buffer_[342]);
+
     }
 
     bool GoodDisplayGdep073e01::wait_until_idle_()
@@ -119,6 +122,11 @@ namespace esphome
       ESP_LOGD("TAG", "init end reached");
 
       this->wait_until_idle_();
+
+      for (int i = 0; i < 128640; i++)
+      {
+        this->buffer_[i] = 43;
+      }
     };
 
     void GoodDisplayGdep073e01::init_display_fast_()
@@ -212,6 +220,7 @@ namespace esphome
 
       this->command(0x04); // PWR on
       this->wait_until_idle_();
+
     };
 
     unsigned char GoodDisplayGdep073e01::get_color(Color color)
@@ -226,15 +235,15 @@ namespace esphome
       else if ((red >= 0x80) && (green >= 0x80) && (blue >= 0x80))
         cv7 = 0x01; // white
       else if ((green >= 0x80) && (blue >= 0x80))
-        cv7 = green > blue ? 0x06 : 0x05; // green, blue
+        cv7 = green > blue ? 0x05 : 0x04; // green, blue
       else if ((red >= 0x80) && (green >= 0x80))
-        cv7 = green > red ? 0x06 : 0x03; // yellow, orange
+        cv7 = 0x02; // yellow
       else if (red >= 0x80)
         cv7 = 0x03; // red
       else if (green >= 0x80)
-        cv7 = 0x06; // green
+        cv7 = 0x05; // green
       else
-        cv7 = 0x05; // blue
+        cv7 = 0x04; // blue
 
       return cv7;
     }
@@ -244,47 +253,69 @@ namespace esphome
       if (x >= this->get_width_internal() || y >= this->get_height_internal() || x < 0 || y < 0)
         return;
 
-      const uint32_t pos = (x + (y * (this->get_width_internal()))) / 2u;
-      unsigned char cv = this->get_color(color);
+      const uint32_t pos = (x/ 3u) + (y * 268) ;
+
+      unsigned int cv = this->get_color(color);
       unsigned char temp_byte = this->buffer_[pos];
-      if ((temp_byte & 0xF0) == 0xF0) //if top nibble is xF
-        temp_byte &= 0x1F;            //set top nibble to default white 0x10
-      if ((temp_byte & 0x0F) == 0x0F) //if bottom nibble is xF
-        temp_byte &= 0xF1;            //set bottom nibble to default white 0x01
 
-      if (x & 0x01)           //if x is odd
-      {
-        temp_byte &= 0xF0;  //clear bottom nibble
-        temp_byte |= cv;    //set bottom nibble
-      }
-      else
-      {
-        temp_byte &= 0x0F;          //clear top nibble
-        temp_byte |= (cv << 4);     //set top nibble
-      }
-      this->buffer_[pos] = temp_byte;
+      uint8_t temp = uint8_t(temp_byte);
 
-      // ESP_LOGD("TAG", "sample buffer_ byte = %02X", this->buffer_[pos]);
+      uint8_t top = (temp / 36 != 4)?temp / 36:1;
+      uint8_t mid = ((temp % 36) / 6!=4)?(temp % 36) / 6:1;
+      uint8_t bot = (temp % 6 != 4)?temp % 6:1;
+
+
+      switch (x % 3)
+      {
+      case 0:
+        top = cv;
+        break;
+      case 1:
+        mid = cv;
+        break;
+      case 2:
+        bot = cv;
+        break;
+      }
+
+      this->buffer_[pos] = (top * 36) + (mid * 6) + bot;
     }
 
-    uint32_t GoodDisplayGdep073e01::get_buffer_length_()
-    {
-      uint32_t len = this->get_height_internal() * this->get_width_internal() / 2;
-      return len;
-    }
+    uint32_t GoodDisplayGdep073e01::get_buffer_length_(){return 128640;}
 
     void GoodDisplayGdep073e01::display_buffer_()
     {
       // Acep_color(White); //Each refresh must be cleaned first
       this->command(0x10);
-      for (int i = 0; i < 192000; i++)
+      uint16_t row_bytes = 0;
+      for (int i = 0; i < 128640; i+=2)
       {
-        if (i < this->get_buffer_length_())
+        uint8_t bytes_in[6] = 
         {
-          this->data(*(this->buffer_ + i));
+          this->buffer_[i]/36, 
+          (this->buffer_[i] % 36) / 6, 
+          this->buffer_[i] % 6, 
+          this->buffer_[i+1]/36, 
+          (this->buffer_[i+1] % 36) / 6, 
+          this->buffer_[i+1] % 6
+        };
+        
+        for (int j = 0; j < 6; j++) bytes_in[j] = (bytes_in[j] > 3) ? bytes_in[j]+1 : bytes_in[j];
+
+
+        for (int j = 0; j < 3; j++)
+        {
+          if (row_bytes < 400) {
+            this->data(bytes_in[j]<<4 | bytes_in[j+1]);
+            row_bytes++;}
+          else
+          {
+            row_bytes = 0;
+            break;
+          }
         }
-        else
-          this->data(0x11);
+
+
       }
       this->command(0x04);
       this->command(0x12); // Refresh command (DRF in W21)
@@ -390,75 +421,9 @@ namespace esphome
       this->deep_sleep();
     }
 
-    struct ColorCount
-    {
-      uint8_t color;
-      int count;
-    };
-
-    std::vector<GoodDisplayGdep073e01::ColorCount> * GoodDisplayGdep073e01::compress_pixels_(const uint8_t *pixels, int rows, int cols)
-    {
-      std::vector<ColorCount> lines[rows];
-      int pix = 0;
-      for (int row = 0; row < rows; row++)
-      {
-        uint8_t color = pixels[pix];
-        uint16_t count = 1;
-        std::vector<GoodDisplayGdep073e01::ColorCount> line;
-        for (int col = 0; col < cols; col++)
-        {
-          if (pixels[pix] == color)
-          {
-            count++;
-          }
-          else
-          {
-            ColorCount cc({color, count});
-            lines[row].push_back(cc);
-            color = pixels[pix];
-            count = 1;
-          }
-          pix++;
-        }
-      }
-    }
-
-    void GoodDisplayGdep073e01::display_compressed_(std::vector<GoodDisplayGdep073e01::ColorCount> *lines, int rows)
-    {
-      for (uint16_t row = 0; row < rows; row++)
-      {
-        uint16_t cc_count = 0;
-        uint16_t byte_count = 0;
-        uint16_t val_ct = 0;
-        bool low = false;
-        uint8_t byte = 0;
-        while (byte_count < 400)
-        {
-          if (low)
-            byte = lines[row][cc_count].color;
-          else
-          {
-            byte |= (lines[row][cc_count].color << 4);
-            ESP_LOGD("TAG", "assembled decompressed byte = %02X", byte);
-
-            // this->data(byte);
-            byte = 0;
-            byte_count++;
-          }
-          low = !low;
-          val_ct++;
-          if (val_ct >= lines[row][cc_count].count)
-          {
-            cc_count++;
-            val_ct = 0;
-          }
-        }
-      }
-    }
-
     int GoodDisplayGdep073e01::get_width_internal() { return 800; }
 
-    int GoodDisplayGdep073e01::get_height_internal() { return 320; }
+    int GoodDisplayGdep073e01::get_height_internal() { return 480; }
 
     void GoodDisplayGdep073e01::dump_config()
     {
