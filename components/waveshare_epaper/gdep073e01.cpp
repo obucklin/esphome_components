@@ -10,17 +10,15 @@ namespace esphome
 {
   namespace waveshare_epaper
   {
+    static const char *const TAG = "gdep073e01";
 
     void GoodDisplayGdep073e01::fill(Color color)
     {
       // flip logic
       const uint8_t fill = get_color(color);
       for (uint32_t i = 0; i < this->get_buffer_length_(); i++)
-        this->buffer_[i] = fill*36+fill*6+fill;
+        this->buffer_[i] = fill * 36 + fill * 6 + fill;
     }
-
-
-    static const char *const TAG = "gdep073e01";
 
     uint32_t GoodDisplayGdep073e01::idle_timeout_() { return 20000; }
 
@@ -28,7 +26,6 @@ namespace esphome
     {
       ESP_LOGD("TAG", "initializing GoodDisplayGdep073e01");
       this->init_display_();
-
     }
 
     bool GoodDisplayGdep073e01::wait_until_idle_()
@@ -40,6 +37,7 @@ namespace esphome
       }
 
       const uint32_t start = millis();
+
       while (!this->busy_pin_->digital_read())
       {
         if (millis() - start > this->idle_timeout_())
@@ -123,7 +121,7 @@ namespace esphome
 
       this->wait_until_idle_();
 
-      for (int i = 0; i < 128640; i++)
+      for (int i = 0; i < 128160; i++)
       {
         this->buffer_[i] = 43;
       }
@@ -134,93 +132,92 @@ namespace esphome
       this->reset_();
 
       this->command(0xAA); // CMDH
-      this-> data(0x49);
-      this-> data(0x55);
-      this-> data(0x20);
-      this-> data(0x08);
-      this-> data(0x09);
-      this-> data(0x18);
+      this->data(0x49);
+      this->data(0x55);
+      this->data(0x20);
+      this->data(0x08);
+      this->data(0x09);
+      this->data(0x18);
 
       this->command(0x01);
-      this-> data(0x3F);
-      this-> data(0x00);
-      this-> data(0x32);
-      this-> data(0x2A);
-      this-> data(0x0E);
-      this-> data(0x2A);
+      this->data(0x3F);
+      this->data(0x00);
+      this->data(0x32);
+      this->data(0x2A);
+      this->data(0x0E);
+      this->data(0x2A);
 
       this->command(0x00);
-      this-> data(0x5F);
-      this-> data(0x69);
+      this->data(0x5F);
+      this->data(0x69);
 
       this->command(0x03);
-      this-> data(0x00);
-      this-> data(0x54);
-      this-> data(0x00);
-      this-> data(0x44);
+      this->data(0x00);
+      this->data(0x54);
+      this->data(0x00);
+      this->data(0x44);
 
       this->command(0x05);
-      this-> data(0x40);
-      this-> data(0x1F);
-      this-> data(0x1F);
-      this-> data(0x2C);
+      this->data(0x40);
+      this->data(0x1F);
+      this->data(0x1F);
+      this->data(0x2C);
 
       this->command(0x06);
-      this-> data(0x6F);
-      this-> data(0x1F);
-      this-> data(0x16);
-      this-> data(0x25);
+      this->data(0x6F);
+      this->data(0x1F);
+      this->data(0x16);
+      this->data(0x25);
 
       this->command(0x08);
-      this-> data(0x6F);
-      this-> data(0x1F);
-      this-> data(0x1F);
-      this-> data(0x22);
+      this->data(0x6F);
+      this->data(0x1F);
+      this->data(0x1F);
+      this->data(0x22);
 
       this->command(0x13); // IPC
-      this-> data(0x00);
-      this-> data(0x04);
+      this->data(0x00);
+      this->data(0x04);
 
       this->command(0x30);
-      this-> data(0x02);
+      this->data(0x02);
 
       this->command(0x41); // TSE
-      this-> data(0x00);
+      this->data(0x00);
 
       this->command(0x50);
-      this-> data(0x3F);
+      this->data(0x3F);
 
       this->command(0x60);
-      this-> data(0x02);
-      this-> data(0x00);
+      this->data(0x02);
+      this->data(0x00);
 
       this->command(0x61);
-      this-> data(0x03);
-      this-> data(0x20);
-      this-> data(0x01);
-      this-> data(0xE0);
+      this->data(0x03);
+      this->data(0x20);
+      this->data(0x01);
+      this->data(0xE0);
 
       this->command(0x82);
-      this-> data(0x1E);
+      this->data(0x1E);
 
       this->command(0x84);
-      this-> data(0x01);
+      this->data(0x01);
 
       this->command(0x86); // AGID
-      this-> data(0x00);
+      this->data(0x00);
 
       this->command(0xE3);
-      this-> data(0x2F);
+      this->data(0x2F);
 
       this->command(0xE0); // CCSET
-      this-> data(0x00);
+      this->data(0x00);
 
       this->command(0xE6); // TSSET
-      this-> data(0x00);
+      this->data(0x00);
 
       this->command(0x04); // PWR on
       this->wait_until_idle_();
-
     };
 
     unsigned char GoodDisplayGdep073e01::get_color(Color color)
@@ -253,17 +250,22 @@ namespace esphome
       if (x >= this->get_width_internal() || y >= this->get_height_internal() || x < 0 || y < 0)
         return;
 
-      const uint32_t pos = (x/ 3u) + (y * 268) ;
+      const uint32_t pos = (x / 3u) + (y * 267);
+
+      // ESP_LOGD("TAG", "position = (%d , %d) => pos %d", x, y, pos);
+      // ESP_LOGD("TAG", "row = %d", x / 3u);
 
       unsigned int cv = this->get_color(color);
       unsigned char temp_byte = this->buffer_[pos];
+      // ESP_LOGD("TAG", "col triplet = %d, %d, %d", temp_byte / 36, (temp_byte % 36) / 6, temp_byte % 6);
 
       uint8_t temp = uint8_t(temp_byte);
 
-      uint8_t top = (temp / 36 != 4)?temp / 36:1;
-      uint8_t mid = ((temp % 36) / 6!=4)?(temp % 36) / 6:1;
-      uint8_t bot = (temp % 6 != 4)?temp % 6:1;
+      uint8_t top = temp / 36;
 
+      uint8_t mid = (temp % 36) / 6;
+
+      uint8_t bot = temp % 6;
 
       switch (x % 3)
       {
@@ -278,45 +280,46 @@ namespace esphome
         break;
       }
 
+      // ESP_LOGD("TAG", "case = %d", (x % 3));
+
       this->buffer_[pos] = (top * 36) + (mid * 6) + bot;
+      // ESP_LOGD("TAG", "col triplet out = %d, %d, %d", top , mid , bot);
     }
 
-    uint32_t GoodDisplayGdep073e01::get_buffer_length_(){return 128640;}
+    uint32_t GoodDisplayGdep073e01::get_buffer_length_() { return 128160; }
 
     void GoodDisplayGdep073e01::display_buffer_()
     {
       // Acep_color(White); //Each refresh must be cleaned first
+
+
+
       this->command(0x10);
       uint16_t row_bytes = 0;
-      for (int i = 0; i < 128640; i+=2)
+      for (uint16_t row = 0; row < 480; row++)
       {
-        uint8_t bytes_in[6] = 
+        for (uint16_t col = 0; col < 266; col += 2) // 2 bytes to make 6 pixels.
         {
-          this->buffer_[i]/36, 
-          (this->buffer_[i] % 36) / 6, 
-          this->buffer_[i] % 6, 
-          this->buffer_[i+1]/36, 
-          (this->buffer_[i+1] % 36) / 6, 
-          this->buffer_[i+1] % 6
-        };
-        
-        for (int j = 0; j < 6; j++) bytes_in[j] = (bytes_in[j] > 3) ? bytes_in[j]+1 : bytes_in[j];
+          uint8_t bytes_in[6] =
+              {
+                  this->buffer_[row * 267 + col] / 36,
+                  (this->buffer_[row * 267 + col] % 36) / 6,
+                  this->buffer_[row * 267 + col] % 6,
+                  this->buffer_[row * 267 + col + 1] / 36,
+                  (this->buffer_[row * 267 + col + 1] % 36) / 6,
+                  this->buffer_[row * 267 + col + 1] % 6
+                };
 
+          for (int j = 0; j < 6; j++)
+            bytes_in[j] = (bytes_in[j] > 3) ? bytes_in[j] + 1 : bytes_in[j]; //correct color
 
-        for (int j = 0; j < 3; j++)
-        {
-          if (row_bytes < 400) {
-            this->data(bytes_in[j]<<4 | bytes_in[j+1]);
-            row_bytes++;}
-          else
-          {
-            row_bytes = 0;
-            break;
-          }
+          for (int j = 0; j < 6; j++)
+            this->data(bytes_in[j] << 4 | bytes_in[j++]);
+          
         }
-
-
+        this->data(this->buffer_[row * 267 + 266] / 36 << 4 | (this->buffer_[row * 267 + 266] % 36) / 6); // Last byte
       }
+
       this->command(0x04);
       this->command(0x12); // Refresh command (DRF in W21)
       this->data(0x00);
@@ -367,7 +370,6 @@ namespace esphome
         for (unsigned long i = 0; i < 192000; i++)
         {
           this->data(color);
-          // if (i%1000 == 0) ESP_LOGD("TAG", "i = %02X", color);
         }
       }
       this->command(0x04);
@@ -393,31 +395,13 @@ namespace esphome
     void GoodDisplayGdep073e01::clear_screen()
     {
       ESP_LOGD("TAG", "clear_screen");
-
       this->display_fill_color_(0x00);
     }
 
     void HOT GoodDisplayGdep073e01::display()
     {
       this->init_display_fast_();
-      ESP_LOGD("TAG", "display");
-      // this->clear_screen();
-      // delay((1000)); // NOLINT
       this->display_buffer_();
-
-      // uint8_t data_in[] = {0x01, 0x01, 0x01, 0x02, 0x02, 0x03, 0x03, 0x03, 0x03, 0x03, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x03, 0x03, 0x02, 0x02};
-
-      // std::vector<GoodDisplayGdep073e01::ColorCount> *compressed = this->compress_pixels_(data_in, 4, 5);
-      
-      // ESP_LOGD("TAG", "compressed size" = sizeof(*compressed));
-      // this->display_compressed_(compressed, 4);
-
-      
-
-
-      //this->display_pic_(stock_image, sizeof(stock_image));
-      // this->display_fill_color_(0x66);
-      // delay(5000); // NOLINT
       this->deep_sleep();
     }
 
