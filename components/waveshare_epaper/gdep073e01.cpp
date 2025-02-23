@@ -251,13 +251,15 @@ namespace esphome
         return;
 
       const uint32_t pos = (x / 3u) + (y * 267);
-
-      // ESP_LOGD("TAG", "position = (%d , %d) => pos %d", x, y, pos);
-      // ESP_LOGD("TAG", "row = %d", x / 3u);
-
+      if (y == 400)
+      {
+        ESP_LOGD("TAG", "position = (%d , %d) => pos %d", x, y, pos);
+        ESP_LOGD("TAG", "row = %d", x / 3u);
+      }
       unsigned int cv = this->get_color(color);
       unsigned char temp_byte = this->buffer_[pos];
-      // ESP_LOGD("TAG", "col triplet = %d, %d, %d", temp_byte / 36, (temp_byte % 36) / 6, temp_byte % 6);
+      if (y == 400)
+        ESP_LOGD("TAG", "col triplet = %d, %d, %d", temp_byte / 36, (temp_byte % 36) / 6, temp_byte % 6);
 
       uint8_t temp = uint8_t(temp_byte);
 
@@ -280,10 +282,12 @@ namespace esphome
         break;
       }
 
-      // ESP_LOGD("TAG", "case = %d", (x % 3));
-
+      if (y == 400)
+      {
+        ESP_LOGD("TAG", "case = %d", (x % 3));
+        ESP_LOGD("TAG", "col triplet out = %d, %d, %d", top, mid, bot);
+      }
       this->buffer_[pos] = (top * 36) + (mid * 6) + bot;
-      // ESP_LOGD("TAG", "col triplet out = %d, %d, %d", top , mid , bot);
     }
 
     uint32_t GoodDisplayGdep073e01::get_buffer_length_() { return 128160; }
@@ -292,12 +296,19 @@ namespace esphome
     {
       // Acep_color(White); //Each refresh must be cleaned first
 
-
-
       this->command(0x10);
       uint16_t row_bytes = 0;
       for (uint16_t row = 0; row < 480; row++)
       {
+        if (row == 400)
+        {
+          for (uint16_t i = 0; i < 267; i++)
+          {
+            if (this->buffer_[row * 267 + i] != 36 * 2 + 6 * 2 + 2)
+              ESP_LOGD("TAG", "col triplet display = %d, %d, %d at index %d", this->buffer_[row * 267 + i] / 36, (this->buffer_[row * 267 + i] % 36) / 6, this->buffer_[row * 267 + i] % 6, i);
+          }
+        }
+
         for (uint16_t col = 0; col < 266; col += 2) // 2 bytes to make 6 pixels.
         {
           uint8_t bytes_in[6] =
@@ -307,15 +318,16 @@ namespace esphome
                   this->buffer_[row * 267 + col] % 6,
                   this->buffer_[row * 267 + col + 1] / 36,
                   (this->buffer_[row * 267 + col + 1] % 36) / 6,
-                  this->buffer_[row * 267 + col + 1] % 6
-                };
+                  this->buffer_[row * 267 + col + 1] % 6};
+
+          if (row == 400)
+            ESP_LOGD("TAG", "bytes_in = [ %d, %d, %d, %d, %d, %d ]", bytes_in[0], bytes_in[1], bytes_in[2], bytes_in[3], bytes_in[4], bytes_in[5]);
 
           for (int j = 0; j < 6; j++)
-            bytes_in[j] = (bytes_in[j] > 3) ? bytes_in[j] + 1 : bytes_in[j]; //correct color
+            bytes_in[j] = (bytes_in[j] > 3) ? bytes_in[j] + 1 : bytes_in[j]; // correct color
 
-          for (int j = 0; j < 6; j++)
-            this->data(bytes_in[j] << 4 | bytes_in[j++]);
-          
+          for (int j = 0; j < 6; j+=2)
+            this->data(bytes_in[j] << 4 | bytes_in[j+1]);
         }
         this->data(this->buffer_[row * 267 + 266] / 36 << 4 | (this->buffer_[row * 267 + 266] % 36) / 6); // Last byte
       }
