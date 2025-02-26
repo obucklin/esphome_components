@@ -2,7 +2,6 @@
 #include "esphome/core/log.h"
 #include "esphome/core/application.h"
 #include "image_copy.h"
-#include "vector"
 
 // 4bit
 
@@ -119,7 +118,7 @@ namespace esphome
 
       this->wait_until_idle_();
 
-      for (int i = 0; i < 64080; i++)
+      for (int i = 0; i < 128160; i++)
       {
         this->buffer_[i] = 43;
       }
@@ -273,7 +272,7 @@ namespace esphome
       this->buffer_[pos] = (top * 36) + (mid * 6) + bot;
     }
 
-    uint32_t GoodDisplayGdep073e01::get_buffer_length_() { return 64080; }
+    uint32_t GoodDisplayGdep073e01::get_buffer_length_() { return 128160; }
 
     void GoodDisplayGdep073e01::display_buffer_()
     {
