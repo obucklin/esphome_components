@@ -20,7 +20,7 @@ namespace esphome
         this->buffer_[i] = fill * 36 + fill * 6 + fill;
     }
 
-    uint32_t GoodDisplayGdep073e01::idle_timeout_() { return 20000; }
+    uint32_t GoodDisplayGdep073e01::idle_timeout_() { return 25000; }
 
     void GoodDisplayGdep073e01::initialize()
     {

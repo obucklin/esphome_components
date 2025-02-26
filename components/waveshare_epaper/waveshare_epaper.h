@@ -744,6 +744,9 @@ namespace esphome
       void fill(Color color)override;
       void display() override;
 
+      
+
+
       void dump_config() override;
 
       void deep_sleep() override
