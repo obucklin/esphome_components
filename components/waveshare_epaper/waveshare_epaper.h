@@ -758,8 +758,8 @@ namespace esphome
         // this->data(0xA5);
       }
       void init_internal_(uint32_t buffer_length);
-      uint8_t *buffer_0{nullptr};
-      uint8_t *buffer_1{nullptr};
+      uint8_t buffer_0[64080]{};
+      uint8_t buffer_1[64080]{};
 
       void clear_screen();
       void display_buffer_();
