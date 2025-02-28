@@ -245,50 +245,109 @@ namespace esphome
       return cv7;
     }
 
-    void HOT GoodDisplayGdep073e01::draw_absolute_pixel_internal(int x, int y, Color color)
-    {
-      if (x >= this->get_width_internal() || y >= this->get_height_internal() || x < 0 || y < 0)
-        return;
+    // void HOT GoodDisplayGdep073e01::draw_absolute_pixel_internal(int x, int y, Color color)
+    // {
+    //   if (x >= this->get_width_internal() || y >= this->get_height_internal() || x < 0 || y < 0)
+    //     return;
 
-      const uint32_t pos = (x / 3u) + (y * 267);
-      if (y == 400)
-      {
-        ESP_LOGD("TAG", "position = (%d , %d) => pos %d", x, y, pos);
-        ESP_LOGD("TAG", "row = %d", x / 3u);
+    //   const uint32_t pos = (x / 3u) + (y * 267);
+    //   if (y == 400)
+    //   {
+    //     ESP_LOGD("TAG", "position = (%d , %d) => pos %d", x, y, pos);
+    //     ESP_LOGD("TAG", "row = %d", x / 3u);
+    //   }
+    //   unsigned int cv = this->get_color(color);
+    //   unsigned char temp_byte = this->buffer_[pos];
+    //   if (y == 400)
+    //     ESP_LOGD("TAG", "col triplet = %d, %d, %d", temp_byte / 36, (temp_byte % 36) / 6, temp_byte % 6);
+
+    //   uint8_t temp = uint8_t(temp_byte);
+
+    //   uint8_t top = temp / 36;
+
+    //   uint8_t mid = (temp % 36) / 6;
+
+    //   uint8_t bot = temp % 6;
+
+    //   switch (x % 3)
+    //   {
+    //   case 0:
+    //     top = cv;
+    //     break;
+    //   case 1:
+    //     mid = cv;
+    //     break;
+    //   case 2:
+    //     bot = cv;
+    //     break;
+    //   }
+
+    //   if (y == 400)
+    //   {
+    //     ESP_LOGD("TAG", "case = %d", (x % 3));
+    //     ESP_LOGD("TAG", "col triplet out = %d, %d, %d", top, mid, bot);
+    //   }
+    //   this->buffer_[pos] = (top * 36) + (mid * 6) + bot;
+    // }
+
+
+
+    void HOT GoodDisplayGdep073e01::draw_absolute_pixel_internal(int x, int y, Color color) {
+      if (x >= 800 || y >= 480 || x < 0 || y < 0)
+          return;
+  
+      const uint8_t cv = get_color(color);
+      auto &row = buffer_[y];
+      uint16_t current_pos = 0;
+      auto it = row.begin();
+      
+      // Find position in run list
+      while (it != row.end() && current_pos + it->count <= x) {
+          current_pos += it->count;
+          ++it;
       }
-      unsigned int cv = this->get_color(color);
-      unsigned char temp_byte = this->buffer_[pos];
-      if (y == 400)
-        ESP_LOGD("TAG", "col triplet = %d, %d, %d", temp_byte / 36, (temp_byte % 36) / 6, temp_byte % 6);
-
-      uint8_t temp = uint8_t(temp_byte);
-
-      uint8_t top = temp / 36;
-
-      uint8_t mid = (temp % 36) / 6;
-
-      uint8_t bot = temp % 6;
-
-      switch (x % 3)
-      {
-      case 0:
-        top = cv;
-        break;
-      case 1:
-        mid = cv;
-        break;
-      case 2:
-        bot = cv;
-        break;
+      
+      if (cv == it->color) {
+          // Same color as current run
+      } 
+      else{
+      if (it != row.end()) {
+          // Split existing run
+          const uint16_t offset = x - current_pos;
+          const uint16_t remaining = it->count - offset - 1;
+          
+          if (offset > 0) {
+              // Insert before
+              row.insert(it, {it->color, offset});
+          }
+          
+          if (remaining > 0) {
+              // Insert after
+              row.insert(std::next(it), {it->color, remaining});
+          }
+          
+          // Modify current run
+          it->color = cv;
+          it->count = 1;
+          
+          // Merge adjacent runs with same color
+          if (it != row.begin() && std::prev(it)->color == cv) {
+              it->count += std::prev(it)->count;
+              row.erase(std::prev(it));
+          }
+          if (std::next(it) != row.end() && std::next(it)->color == cv) {
+              it->count += std::next(it)->count;
+              row.erase(std::next(it));
+          }
+      } else {
+          // Add new run at end
+          if (!row.empty() && row.back().color == cv) {
+              row.back().count++;
+          } else {
+              row.push_back({cv, 1});
+          }
       }
-
-      if (y == 400)
-      {
-        ESP_LOGD("TAG", "case = %d", (x % 3));
-        ESP_LOGD("TAG", "col triplet out = %d, %d, %d", top, mid, bot);
-      }
-      this->buffer_[pos] = (top * 36) + (mid * 6) + bot;
-    }
+  }
 
     uint32_t GoodDisplayGdep073e01::get_buffer_length_() { return 128160; }
 
