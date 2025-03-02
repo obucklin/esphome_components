@@ -739,13 +739,17 @@ namespace esphome
         int count;
       };
 
+      void setup() override
+      {
+        ESP_LOGD("TAG", "setup() GoodDisplayGdep073e01");
+        this->setup_pins_();
+        this->initialize();
+      }
+
       bool wait_until_idle_();
       void initialize() override;
-      void fill(Color color)override;
+      void fill(Color color) override;
       void display() override;
-
-      
-
 
       void dump_config() override;
 
@@ -757,30 +761,25 @@ namespace esphome
         // this->command(0x07); // Deep sleep
         // this->data(0xA5);
       }
-      void init_internal_(uint32_t buffer_length);
-      uint8_t buffer_0[64080]{};
-      uint8_t buffer_1[64080]{};
 
       void clear_screen();
       void display_buffer_();
       void display_pic_(const unsigned char picData[], int size);
       void display_fill_color_(unsigned char color);
-      void pixels_to_buffer_(const uint8_t *pixels, int size);
-      std::vector<ColorCount> *compress_pixels_(const uint8_t *pixels, int rows, int cols);
-      void display_compressed_(std::vector<ColorCount> *lines, int rows);      
+
       unsigned char get_color(Color color);
       uint32_t idle_timeout_() override;
       uint32_t get_buffer_length_() override;
       void draw_absolute_pixel_internal(int x, int y, Color color) override;
 
-
       void init_display_();
       void init_display_fast_();
-      
 
     protected:
       int get_width_internal() override;
       int get_height_internal() override;
+      void setup_pins_();
+
       void reset_()
       {
         if (this->reset_pin_ != nullptr)
@@ -793,6 +792,10 @@ namespace esphome
           delay(10); // NOLINT
         }
       }
+
+    private:
+      void init_internal(uint32_t buffer_length);
+      uint8_t *buffer_[4] = {nullptr};
     };
 
     class WaveshareEPaper7P5InBC : public WaveshareEPaper
