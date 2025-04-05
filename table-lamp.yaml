@@ -1,6 +1,11 @@
 esphome:
   name: table-lamp
   friendly_name: table_lamp
+  on_boot:
+    - priority: 600.0 
+      then:
+        - light.turn_on: 
+            id: table_lamp
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -8,10 +13,8 @@ esp32:
   framework:
     type: arduino
 
-# Enable logging
 logger:
 
-# Enable Home Assistant API
 api:
   encryption:
     key: "kO+Hg9bcHgdAIUP+V0I8QRYVB8jZON01Atjwy+kFFMI="
@@ -24,37 +27,35 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "Table-Lamp Fallback Hotspot"
     password: "Nji2uNqpma90"
 
 light:
-  - platform: neopixelbus
-    num_leds: 7
-    type: GRB
-    variant: ws2812x
-    id: table_lamp
+  - platform: esp32_rmt_led_strip
+    name: "table_light"
+    rgb_order: GRB
     pin: GPIO10
-  - platform: partition
-    name: "Ring #2"
-    segments:
-      - id: table_lamp
-        from: 0
-        to: 6 
+    num_leds: 7
+    rmt_channel: 0
+    chipset: ws2812
+    id: table_lamp
+    on_turn_on:
+      then:
+        - light.turn_on: 
+            id: table_lamp
+            brightness: 100%
+            red: 100%
+            green: 50%
+            blue: 0%
+            effect: flicker
     effects:
       - addressable_flicker: 
       - addressable_twinkle: 
       - pulse: 
       - flicker:
-            
           
     internal: false
-
-
-
-
-
 
 
 captive_portal:
