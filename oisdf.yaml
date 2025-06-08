@@ -1,0 +1,32 @@
+esphome:
+  name: oisdf
+  friendly_name: oisdf
+
+esp32:
+  board: esp32-c6-devkitc-1
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "Mpz2fOwuqiheHjT5X+9E6d55Nv6LZQUzMJ1QhtdYIbk="
+
+ota:
+  - platform: esphome
+    password: "03be0828904a33be351dbd78e8995064"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Oisdf Fallback Hotspot"
+    password: "TuQXK7XnQGaJ"
+
+captive_portal:
+    

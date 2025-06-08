@@ -1,0 +1,49 @@
+esphome:
+  name: rot
+  friendly_name: rot
+
+esp32:
+  board: esp32-c6-devkitc-1
+  framework:
+    type: esp-idf
+    
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "mmFP2AKMTRmoa6sYQLPauAyDFQh8exMsUKUMsRK1hw0="
+
+ota:
+  - platform: esphome
+    password: "cf624abdc1673266e9a957a20a2274fe"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Rot Fallback Hotspot"
+    password: "cWM4uRRLnbMw"
+
+sensor:
+  - platform: rotary_encoder
+    pin_a: 
+      number: 0
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    pin_b: 
+      number: 1
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    id: "rotary1"
+
+captive_portal:
+    

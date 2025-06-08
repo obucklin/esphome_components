@@ -1,0 +1,33 @@
+esphome:
+  name: hello-rotary
+  friendly_name: hello_rotary
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+    
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "+Y4FAUkBJYXKKNuBxuxnmmWdnvv3F1CpALCql82jRLU="
+
+ota:
+  - platform: esphome
+    password: "e6734b36236f47cb73adac72eebaef7c"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Hello-Rotary Fallback Hotspot"
+    password: "dlQXvhLh16Wp"
+
+captive_portal:
+    
