@@ -61,18 +61,7 @@ sensor:
   - platform: homeassistant
     entity_id: sensor.katzensee_temperature
     id: katzensee_temperature    
-  # - platform: debug
-  #   free:
-  #     name: "Heap Free"
-  #   block:
-  #     name: "Heap Max Block"
-  #   loop_time:
-  #     name: "Loop Time"
-  #   psram:
-  #     name: "Free PSRAM"
 
-
-# psram:
 
 spi:
   clk_pin: GPIO7
@@ -116,7 +105,7 @@ display:
     dc_pin: GPIO4
     reset_pin: GPIO3
     busy_pin: GPIO6  # Input pin
-    update_interval: 1200s #1800s
+    update_interval: 1800s 
     rotation: 270
     lambda: |-
       auto black = Color(0x00, 0x00, 0x00);
@@ -126,32 +115,66 @@ display:
       auto white = Color(0xFF, 0xFF, 0xFF);
       auto yellow = Color(0xFF, 0xFF, 0x00);
 
-      it.fill(green);
-      it.filled_rectangle(it.get_width()/2+6, 3, it.get_width()-6, 160 , white);
-      it.printf(it.get_width()/2+20, 8, id(Audiowide_med), black, "Limmat");  
-      it.printf(it.get_width()/2+20, 50, id(Audiowide_BIG),black, "%.1f°", id(limmat_temperature).state);  
-      
-      it.fill(green);
-      it.filled_rectangle(it.get_width()/2+6, 170, it.get_width()-6, 160 , white);
-      it.printf(it.get_width()/2+20, 8, id(Audiowide_32), black, "Katzensee");  
-      it.printf(it.get_width()/2+20, 50, id(Audiowide_BIG),black, "%.1f°", id(katzensee_temperature).state);  
+      auto border = 5;
+      auto left_y = border;
+      auto right_y = border;
+      auto left_width = (it.get_width() - (3*border))/2;
+      auto left_x = border;
+      auto right_width = it.get_width() - (3*border)-left_width;
+      auto right_x = left_x + left_width + border;
 
-      it.filled_rectangle(it.get_width()/2+6, 330, it.get_width()-6, 100 , white);
-      it.printf(it.get_width()/2+20, 175, id(Audiowide_small), black, "LIVING ROOM" );  
-      it.printf(it.get_width()/2+20, 205, id(Audiowide_32), black, "%.1f°  %.0f%%", id(LRTemp).state, id(LRRH).state);  
+      it.fill(green);
+      // limmat section
+      it.filled_rectangle(right_x, right_y, right_width, 160 , white);
+      it.print(right_x+30, right_y+5, id(Audiowide_med), black, "Limmat");  
+
+      int len1 = snprintf(nullptr, 0, "%.1f°", id(limmat_temperature).state);
+      char *buf = new char[len1 + 1];
+      snprintf(buf, len1 + 1, "%.1f°", id(limmat_temperature).state);
+
+      it.print(right_x+(right_width/2), right_y+50, id(Audiowide_BIG),black, TextAlign::TOP_CENTER, buf);  
+      right_y+=(160+border);
+
+      // katzensee section
+      it.filled_rectangle(right_x, right_y, right_width, 160 , white);
+      it.print(right_x+12, right_y+5, id(Audiowide_32), black, "Katzensee");  
+
+      int len2 = snprintf(nullptr, 0, "%.1f°", id(katzensee_temperature).state);
+      char *buf2 = new char[len2 + 1];
+      snprintf(buf2, len2 + 1, "%.1f°", id(katzensee_temperature).state);
+
+      it.print(right_x+(right_width/2), right_y+50, id(Audiowide_BIG),black, TextAlign::TOP_CENTER, buf2);  
+      right_y+=(160+border);
+
+      // living room section
+      it.filled_rectangle(right_x, right_y, right_width, 100 , white);
+      it.print(right_x+20, right_y+5, id(Audiowide_small), black, "LIVING ROOM" );  
+
+      float temp = id(LRTemp).state;
+      float rh   = id(LRRH).state;
+      int len3 = snprintf(nullptr, 0, "%.1f°  %.0f%%", temp, rh);
+      char *buf3 = new char[len3 + 1];
+      snprintf(buf3, len3 + 1, "%.1f°  %.0f%%", temp, rh);  
+
+      it.print(right_x+(right_width/2), right_y+35, id(Audiowide_32), black, TextAlign::TOP_CENTER, buf3);  
+      right_y+=(100+border);
 
       //it.filled_rectangle(it.get_width()/2+6, 280, it.get_width()-6, 100 , white);
       // it.printf(it.get_width()/2+20, 205, id(Audiowide_32), black, "%.1f°  %.0f%%", id(events)[0].start_time; 
 
-
-      it.filled_rectangle(3, 3, it.get_width()/2-6, it.get_height()-6, white);
-      for (int i = 0; i < 14; i++) {
-        int line_pos = (i * (it.get_height()-6) / 13)+3; 
-        it.line(3, line_pos+1, it.get_width()/2-6, line_pos+1, green);
-        if (i%2==0)
-          it.printf(5, line_pos+2, id(Audiowide_small),black, "%d", i+7);      
-        }
-
+      auto left_height = it.get_height() - (2*border);
+      it.filled_rectangle(left_x, left_y, left_width, left_height, white);
+      auto line_pos = left_y;
+      auto time = 7;
+      auto end_time = 19;
+      auto line_spacing = left_height / 13;
+      while (time <= end_time) {
+        it.line(left_x, line_pos, left_x+left_width, line_pos, green);
+        if (time%2!=0)
+          it.printf(left_x+2, line_pos+2, id(Audiowide_small),black, "%d", time);      
+        line_pos += line_spacing;
+        time += 1;
+      }
 
 i2c:
   sda: GPIO8

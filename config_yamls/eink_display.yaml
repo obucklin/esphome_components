@@ -11,7 +11,7 @@ esp32:
 external_components:
   - source: 
       type: local
-      path: ./components
+      path: /Users/obucklin/Documents/repos/esphome_components/components
     components: [waveshare_epaper]
 
 logger:
