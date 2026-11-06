@@ -9,10 +9,9 @@ esp32:
     type: arduino
 
 external_components:
-  - source: 
-      type: local
-      path: ./components
+  - source: github://pr#13004
     components: [waveshare_epaper]
+    refresh: 1h
 
 logger:
   level: debug

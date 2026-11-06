@@ -1,0 +1,50 @@
+# Home Assistant side of lcars_display.yaml. Add to configuration.yaml (merge
+# with any existing `template:` section), then reload Template Entities.
+#
+# Creates sensor.display_agenda. Its attributes hold the events for today, or
+# for tomorrow from 19:00 onwards.
+# template:
+- trigger:
+    - trigger: time_pattern
+      minutes: "/15"
+    - trigger: homeassistant
+      event: start
+  action:
+    - variables:
+        day_offset: "{{ 1 if now().hour >= 19 else 0 }}"
+    - action: calendar.get_events
+      target:
+        entity_id: calendar.calendar
+      data:
+        start_date_time: "{{ today_at() + timedelta(days=day_offset | int) }}"
+        end_date_time: "{{ today_at() + timedelta(days=day_offset | int + 1) }}"
+      response_variable: agenda
+  sensor:
+    - name: Display Agenda
+      unique_id: display_agenda
+      state: "{{ agenda['calendar.calendar'].events | count }}"
+      attributes:
+        day_label: >-
+          {{ 'TOMORROW' if day_offset | int == 1 else 'TODAY' }}
+          {{ (today_at() + timedelta(days=day_offset | int)).strftime('%a %d %b') | upper }}
+        # One event per line as "HH:MM|Title"; all-day events come first
+        events: >-
+          {%- set day = today_at() + timedelta(days=day_offset | int) -%}
+          {%- set ns = namespace(all_day=[], timed=[]) -%}
+          {%- for e in agenda['calendar.calendar'].events -%}
+            {%- set title = e.summary | default('(no title)') | replace('|', '/') | replace('\n', ' ') -%}
+            {%- set title = title[:40] -%}
+            {%- if e.start | length == 10 -%}
+              {%- if e.end[:10] > day.strftime('%Y-%m-%d') -%}
+                {%- set ns.all_day = ns.all_day + ['ALL DAY|' ~ title] -%}
+              {%- endif -%}
+            {%- elif as_datetime(e.end) > day -%}
+              {%- set start = as_local(as_datetime(e.start)) -%}
+              {%- if start < day -%}
+                {%- set ns.all_day = ns.all_day + ['ALL DAY|' ~ title] -%}
+              {%- else -%}
+                {%- set ns.timed = ns.timed + [start.strftime('%H:%M') ~ '|' ~ title] -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ (ns.all_day + (ns.timed | sort))[:8] | join('\n') }}

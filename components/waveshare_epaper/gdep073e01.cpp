@@ -314,11 +314,12 @@ namespace esphome
       // Acep_color(White); //Each refresh must be cleaned first
 
       this->command(0x10);
-      uint16_t row_bytes = 0;
       for (uint8_t i = 0; i<4; i++)
       {
         for (uint16_t row = 0; row < 120; row++)
         {
+          uint8_t row_data[400]; // 800 pixels at 4 bits each
+          uint16_t row_len = 0;
           for (uint16_t col = 0; col < 266; col += 2) // 2 bytes to make 6 pixels.
           {
             uint8_t bytes_in[6] =
@@ -334,9 +335,20 @@ namespace esphome
               bytes_in[j] = (bytes_in[j] > 3) ? bytes_in[j] + 1 : bytes_in[j]; // correct color
 
             for (int j = 0; j < 6; j += 2)
-              this->data(bytes_in[j] << 4 | bytes_in[j + 1]);
+              row_data[row_len++] = bytes_in[j] << 4 | bytes_in[j + 1];
           }
-          this->data(this->buffer_[i][row * 267 + 266] / 36 << 4 | (this->buffer_[i][row * 267 + 266] % 36) / 6); // Last byte
+          // Last byte holds only the row's final 2 pixels
+          uint8_t last_a = this->buffer_[i][row * 267 + 266] / 36;
+          uint8_t last_b = (this->buffer_[i][row * 267 + 266] % 36) / 6;
+          last_a = (last_a > 3) ? last_a + 1 : last_a; // correct color
+          last_b = (last_b > 3) ? last_b + 1 : last_b;
+          row_data[row_len++] = last_a << 4 | last_b;
+
+          // Per-byte SPI transactions over a whole frame outlast the task watchdog
+          this->start_data_();
+          this->write_array(row_data, row_len);
+          this->end_data_();
+          App.feed_wdt();
         }
       }
       this->command(0x04);
