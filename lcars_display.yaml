@@ -54,7 +54,7 @@ time:
   - platform: homeassistant
     id: ha_time
     on_time:
-      # On the clock so the 19:00 agenda switch from HA lands on time
+      # On the clock so finished events drop off the agenda promptly
       - cron: "30 0,30 * * * *"
         then:
           - component.update: epd
@@ -67,13 +67,13 @@ text_sensor:
       name: "Reset Reason"
   # Both attributes come from ha_display_agenda.yaml
   - platform: homeassistant
-    id: agenda_events
+    id: agenda_today
     entity_id: sensor.display_agenda
-    attribute: events
+    attribute: today
   - platform: homeassistant
-    id: agenda_day
+    id: agenda_tomorrow
     entity_id: sensor.display_agenda
-    attribute: day_label
+    attribute: tomorrow
 
 sensor:
   - platform: debug
@@ -96,6 +96,22 @@ sensor:
   - platform: homeassistant
     entity_id: sensor.katzensee_temperature
     id: katzensee_temperature
+  # The outside values come from ha_display_agenda.yaml
+  - platform: homeassistant
+    entity_id: sensor.display_outside
+    id: outside_temperature
+  - platform: homeassistant
+    entity_id: sensor.display_outside
+    attribute: humidity
+    id: outside_humidity
+  - platform: homeassistant
+    entity_id: sensor.display_outside
+    attribute: high
+    id: outside_high
+  - platform: homeassistant
+    entity_id: sensor.display_outside
+    attribute: low
+    id: outside_low
 
 
 spi:
@@ -116,9 +132,13 @@ font:
     size: 30
     glyphsets: [GF_Latin_Core]
   - file: "gfonts://Antonio"
+    id: lcars_item
+    size: 24
+    glyphsets: [GF_Latin_Core]
+  - file: "gfonts://Antonio"
     id: lcars_small
     size: 24
-    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:- "
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-% "
 
 display:
   - platform: waveshare_epaper
@@ -178,11 +198,6 @@ display:
           *s = toupper(*s);
       };
 
-      auto reading = [&](int y, const char *label, Color c, Color label_c, const char *value, BaseFont *font, int base) {
-        pill(read_x, y, read_w, 30, c);
-        it.print(read_x + 16, y + 25, id(lcars_small), label_c, TextAlign::BASELINE_LEFT, label);
-        it.print(read_x + read_w / 2, y + base, font, yellow, TextAlign::BASELINE_CENTER, value);
-      };
 
       it.fill(black);
 
@@ -196,62 +211,81 @@ display:
       it.filled_rectangle(side_x + side_w + 366, bottom_y, 90, bar_h, blue);
       pill(side_x + side_w + 462, bottom_y, W - margin - (side_x + side_w + 462), bar_h, red);
 
-      // sidebar: current day, date and time of this refresh
+      // sidebar: day and date, then apartment temperature and humidity
       char day_buf[8] = "--";
       char date_buf[12] = "--";
-      char upd_buf[8] = "--:--";
       auto now = id(ha_time).now();
       if (now.is_valid()) {
         now.strftime(day_buf, sizeof(day_buf), "%a");
         now.strftime(date_buf, sizeof(date_buf), "%d %b");
-        now.strftime(upd_buf, sizeof(upd_buf), "%H:%M");
         upper(day_buf);
         upper(date_buf);
       }
+      // four blocks between the elbows, 4 px apart
       const int block_y = top_y + elbow_h + 4;
-      const int block_h = (bottom_y + bar_h - elbow_h - 4 - block_y - 8) / 3;
+      const int block_h = (bottom_y + bar_h - elbow_h - 4 - block_y - 3 * 4) / 4;
       const int text_r = side_x + side_w - 8;
-      it.filled_rectangle(side_x, block_y, side_w, block_h, red);
-      it.print(text_r, block_y + block_h - 10, id(lcars_small), white, TextAlign::BASELINE_RIGHT, day_buf);
-      it.filled_rectangle(side_x, block_y + block_h + 4, side_w, block_h, blue);
-      it.print(text_r, block_y + 2 * block_h - 6, id(lcars_small), white, TextAlign::BASELINE_RIGHT, date_buf);
-      it.filled_rectangle(side_x, block_y + 2 * (block_h + 4), side_w, block_h, yellow);
-      it.print(text_r, block_y + 3 * block_h - 2, id(lcars_small), black, TextAlign::BASELINE_RIGHT, upd_buf);
+      auto block = [&](int i, Color c, Color text_c, const char *text) {
+        int y = block_y + i * (block_h + 4);
+        it.filled_rectangle(side_x, y, side_w, block_h, c);
+        it.print(text_r, y + block_h - 10, id(lcars_event), text_c, TextAlign::BASELINE_RIGHT, text);
+      };
+      block(0, red, white, day_buf);
+      block(1, blue, white, date_buf);
+      char side_buf[12];
+      float temp = id(LRTemp).state;
+      if (std::isnan(temp))
+        snprintf(side_buf, sizeof(side_buf), "--°");
+      else
+        snprintf(side_buf, sizeof(side_buf), "%.1f°", temp);
+      block(2, yellow, black, side_buf);
+      float rh = id(LRRH).state;
+      if (std::isnan(rh))
+        snprintf(side_buf, sizeof(side_buf), "--%%");
+      else
+        snprintf(side_buf, sizeof(side_buf), "%.0f%%", rh);
+      block(3, red, white, side_buf);
 
-      // agenda
-      const char *day_label = id(agenda_day).has_state() ? id(agenda_day).state.c_str() : "AGENDA";
-      pill(list_x, 50, list_r - list_x, 36, yellow);
-      it.print(list_x + 18, 79, id(lcars_event), black, TextAlign::BASELINE_LEFT, day_label);
-
-      const std::string &events = id(agenda_events).state;
-      const int row_h = 40;
-      const int time_w = 104;
-      int row_y = 124;
-      int rows = 0;
-      size_t pos = 0;
-      it.start_clipping(list_x, 90, list_r, bottom_y - 4);
-      while (pos < events.size() && rows < 8) {
-        size_t end = events.find('\n', pos);
-        if (end == std::string::npos)
-          end = events.size();
-        size_t sep = events.find('|', pos);
-        if (sep != std::string::npos && sep < end) {
-          char when[12];
-          char title[170];
-          snprintf(when, sizeof(when), "%.*s", (int) (sep - pos), events.c_str() + pos);
-          snprintf(title, sizeof(title), "%.*s", (int) (end - sep - 1), events.c_str() + sep + 1);
-          it.print(list_x, row_y, id(lcars_event), yellow, TextAlign::BASELINE_LEFT, when);
-          it.print(list_x + time_w, row_y, id(lcars_event), white, TextAlign::BASELINE_LEFT, title);
-          row_y += row_h;
-          rows++;
+      // agenda: today, then tomorrow in whatever space is left
+      const int row_h = 32;
+      const int time_w = 80;
+      const int first_row = 66;  // header top to first row baseline
+      auto section = [&](int y, const char *label, text_sensor::TextSensor *src, int max_baseline) -> int {
+        pill(list_x, y, list_r - list_x, 36, yellow);
+        it.print(list_x + 18, y + 29, id(lcars_event), black, TextAlign::BASELINE_LEFT, label);
+        const std::string &events = src->state;
+        int row_y = y + first_row;
+        int rows = 0;
+        size_t pos = 0;
+        while (pos < events.size() && row_y <= max_baseline) {
+          size_t end = events.find('\n', pos);
+          if (end == std::string::npos)
+            end = events.size();
+          size_t sep = events.find('|', pos);
+          if (sep != std::string::npos && sep < end) {
+            char when[12];
+            char title[170];
+            snprintf(when, sizeof(when), "%.*s", (int) (sep - pos), events.c_str() + pos);
+            snprintf(title, sizeof(title), "%.*s", (int) (end - sep - 1), events.c_str() + sep + 1);
+            it.print(list_x, row_y, id(lcars_item), yellow, TextAlign::BASELINE_LEFT, when);
+            it.print(list_x + time_w, row_y, id(lcars_item), white, TextAlign::BASELINE_LEFT, title);
+            row_y += row_h;
+            rows++;
+          }
+          pos = end + 1;
         }
-        pos = end + 1;
-      }
+        if (rows == 0) {
+          it.print(list_x, row_y, id(lcars_item), white, TextAlign::BASELINE_LEFT,
+                   src->has_state() ? "NO SCHEDULED EVENTS" : "AWAITING DATA");
+          row_y += row_h;
+        }
+        return row_y - row_h + 14;  // top of the next header
+      };
+      it.start_clipping(list_x, 0, list_r, bottom_y - 4);
+      // Today stops early enough to leave the tomorrow header and one row
+      int tomorrow_y = section(50, "TODAY", id(agenda_today), bottom_y - 10 - 14 - first_row);
+      section(tomorrow_y, "TOMORROW", id(agenda_tomorrow), bottom_y - 10);
       it.end_clipping();
-      if (rows == 0) {
-        it.print(list_x, row_y, id(lcars_event), white, TextAlign::BASELINE_LEFT,
-                 id(agenda_events).has_state() ? "NO SCHEDULED EVENTS" : "AWAITING DATA");
-      }
 
       // readouts
       it.filled_rectangle(538, 50, 4, bottom_y - 4 - 50, blue);
@@ -262,17 +296,42 @@ display:
           snprintf(buf, len, "%.1f°", value);
       };
       char value_buf[24];
-      format_temp(value_buf, sizeof(value_buf), id(limmat_temperature).state);
-      reading(50, "LIMMAT", blue, white, value_buf, id(lcars_big), 106);
-      format_temp(value_buf, sizeof(value_buf), id(katzensee_temperature).state);
-      reading(174, "KATZENSEE", red, white, value_buf, id(lcars_big), 106);
-      float temp = id(LRTemp).state;
-      float rh = id(LRRH).state;
-      if (std::isnan(temp) || std::isnan(rh))
-        snprintf(value_buf, sizeof(value_buf), "--°  --%%");
+      const int read_l = read_x + 6;
+      const int read_r = read_x + read_w - 6;
+
+      // weather: current temp and humidity, then today's high and low
+      const int out_y = 50;
+      pill(read_x, out_y, read_w, 30, blue);
+      it.print(read_x + 16, out_y + 25, id(lcars_small), white, TextAlign::BASELINE_LEFT, "WEATHER");
+
+      format_temp(value_buf, sizeof(value_buf), id(outside_temperature).state);
+      it.print(read_l, out_y + 112, id(lcars_big), yellow, TextAlign::BASELINE_LEFT, value_buf);
+      float out_rh = id(outside_humidity).state;
+      if (std::isnan(out_rh))
+        snprintf(value_buf, sizeof(value_buf), "--%%");
       else
-        snprintf(value_buf, sizeof(value_buf), "%.1f°  %.0f%%", temp, rh);
-      reading(298, "APARTMENT", yellow, black, value_buf, id(lcars_med), 86);
+        snprintf(value_buf, sizeof(value_buf), "%.0f%%", out_rh);
+      it.print(read_r, out_y + 80, id(lcars_small), white, TextAlign::BASELINE_RIGHT, "RH");
+      it.print(read_r, out_y + 112, id(lcars_event), yellow, TextAlign::BASELINE_RIGHT, value_buf);
+
+      it.print(read_l, out_y + 150, id(lcars_small), white, TextAlign::BASELINE_LEFT, "HIGH");
+      it.print(read_r, out_y + 150, id(lcars_small), white, TextAlign::BASELINE_RIGHT, "LOW");
+      format_temp(value_buf, sizeof(value_buf), id(outside_high).state);
+      it.print(read_l, out_y + 200, id(lcars_med), yellow, TextAlign::BASELINE_LEFT, value_buf);
+      format_temp(value_buf, sizeof(value_buf), id(outside_low).state);
+      it.print(read_r, out_y + 200, id(lcars_med), yellow, TextAlign::BASELINE_RIGHT, value_buf);
+
+      // water: Limmat justified left, Katzensee justified right
+      const int water_y = 310;
+      const int water_w = (read_w - 8) / 2;
+      pill(read_x, water_y, water_w, 30, blue);
+      it.print(read_x + 16, water_y + 25, id(lcars_small), white, TextAlign::BASELINE_LEFT, "LIMMAT");
+      pill(read_x + read_w - water_w, water_y, water_w, 30, red);
+      it.print(read_x + read_w - 16, water_y + 25, id(lcars_small), white, TextAlign::BASELINE_RIGHT, "KATZENSEE");
+      format_temp(value_buf, sizeof(value_buf), id(limmat_temperature).state);
+      it.print(read_l, water_y + 76, id(lcars_med), yellow, TextAlign::BASELINE_LEFT, value_buf);
+      format_temp(value_buf, sizeof(value_buf), id(katzensee_temperature).state);
+      it.print(read_r, water_y + 76, id(lcars_med), yellow, TextAlign::BASELINE_RIGHT, value_buf);
 
 i2c:
   sda: GPIO8

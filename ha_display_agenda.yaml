@@ -1,8 +1,11 @@
 # Home Assistant side of lcars_display.yaml. Add to configuration.yaml (merge
-# with any existing `template:` section), then reload Template Entities.
+# with any existing `template:` section), then restart Home Assistant.
 #
-# Creates sensor.display_agenda. Its attributes hold the events for today, or
-# for tomorrow from 19:00 onwards.
+# Creates sensor.display_agenda. Its today and tomorrow attributes hold the
+# events from an hour ago until the end of tomorrow.
+#
+# Also creates sensor.display_outside: its state is the outside temperature,
+# with humidity and today's high and low as attributes.
 # template:
 - trigger:
     - trigger: time_pattern
@@ -10,41 +13,74 @@
     - trigger: homeassistant
       event: start
   action:
-    - variables:
-        day_offset: "{{ 1 if now().hour >= 19 else 0 }}"
     - action: calendar.get_events
       target:
         entity_id: calendar.calendar
       data:
-        start_date_time: "{{ today_at() + timedelta(days=day_offset | int) }}"
-        end_date_time: "{{ today_at() + timedelta(days=day_offset | int + 1) }}"
+        start_date_time: "{{ now() - timedelta(hours=1) }}"
+        end_date_time: "{{ today_at() + timedelta(days=2) }}"
       response_variable: agenda
+    # Split into today and tomorrow, one event per line as "HH:MM|Title" with
+    # all-day events first. Today drops events that ended over an hour ago, and
+    # an event running from today into tomorrow is only listed under today.
+    - variables:
+        lines: >-
+          {%- set t0 = today_at() -%}
+          {%- set cutoff = now() - timedelta(hours=1) -%}
+          {%- set result = namespace(days=[]) -%}
+          {%- for d in [0, 1] -%}
+            {%- set ds = t0 + timedelta(days=d) -%}
+            {%- set de = t0 + timedelta(days=d + 1) -%}
+            {%- set day_str = ds.strftime('%Y-%m-%d') -%}
+            {%- set ns = namespace(all_day=[], timed=[]) -%}
+            {%- for e in agenda['calendar.calendar'].events -%}
+              {%- set title = (e.summary | default('(no title)') | replace('|', '/') | replace('\n', ' '))[:40] -%}
+              {%- if e.start | length == 10 -%}
+                {%- if e.start <= day_str and e.end[:10] > day_str -%}
+                  {%- set ns.all_day = ns.all_day + ['ALL DAY|' ~ title] -%}
+                {%- endif -%}
+              {%- else -%}
+                {%- set s = as_local(as_datetime(e.start)) -%}
+                {%- set en = as_datetime(e.end) -%}
+                {%- if d == 0 and en <= cutoff -%}
+                {%- elif s < ds and en >= de -%}
+                  {%- set ns.all_day = ns.all_day + ['ALL DAY|' ~ title] -%}
+                {%- elif s < de and en > ds and (d == 0 or s >= ds) -%}
+                  {%- set ns.timed = ns.timed + [[s.timestamp(), s.strftime('%H:%M') ~ '|' ~ title]] -%}
+                {%- endif -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {%- set timed = ns.timed | sort(attribute='0') | map(attribute='1') | list -%}
+            {%- set result.days = result.days + [(ns.all_day + timed)[:8] | join('\n')] -%}
+          {%- endfor -%}
+          {{ {'today': result.days[0], 'tomorrow': result.days[1]} }}
   sensor:
     - name: Display Agenda
       unique_id: display_agenda
       state: "{{ agenda['calendar.calendar'].events | count }}"
       attributes:
-        day_label: >-
-          {{ 'TOMORROW' if day_offset | int == 1 else 'TODAY' }}
-          {{ (today_at() + timedelta(days=day_offset | int)).strftime('%a %d %b') | upper }}
-        # One event per line as "HH:MM|Title"; all-day events come first
-        events: >-
-          {%- set day = today_at() + timedelta(days=day_offset | int) -%}
-          {%- set ns = namespace(all_day=[], timed=[]) -%}
-          {%- for e in agenda['calendar.calendar'].events -%}
-            {%- set title = e.summary | default('(no title)') | replace('|', '/') | replace('\n', ' ') -%}
-            {%- set title = title[:40] -%}
-            {%- if e.start | length == 10 -%}
-              {%- if e.end[:10] > day.strftime('%Y-%m-%d') -%}
-                {%- set ns.all_day = ns.all_day + ['ALL DAY|' ~ title] -%}
-              {%- endif -%}
-            {%- elif as_datetime(e.end) > day -%}
-              {%- set start = as_local(as_datetime(e.start)) -%}
-              {%- if start < day -%}
-                {%- set ns.all_day = ns.all_day + ['ALL DAY|' ~ title] -%}
-              {%- else -%}
-                {%- set ns.timed = ns.timed + [start.strftime('%H:%M') ~ '|' ~ title] -%}
-              {%- endif -%}
-            {%- endif -%}
-          {%- endfor -%}
-          {{ (ns.all_day + (ns.timed | sort))[:8] | join('\n') }}
+        today: "{{ lines.today }}"
+        tomorrow: "{{ lines.tomorrow }}"
+- trigger:
+    - trigger: time_pattern
+      minutes: "/15"
+    - trigger: homeassistant
+      event: start
+  action:
+    - variables:
+        weather_entity: weather.forecast_home
+    - action: weather.get_forecasts
+      target:
+        entity_id: "{{ weather_entity }}"
+      data:
+        type: daily
+      response_variable: daily_outlook
+  sensor:
+    - name: Display Outside
+      unique_id: display_outside
+      unit_of_measurement: "°C"
+      state: "{{ state_attr(weather_entity, 'temperature') }}"
+      attributes:
+        humidity: "{{ state_attr(weather_entity, 'humidity') }}"
+        high: "{{ daily_outlook[weather_entity].forecast[0].temperature | default('unknown') }}"
+        low: "{{ daily_outlook[weather_entity].forecast[0].templow | default('unknown') }}"
