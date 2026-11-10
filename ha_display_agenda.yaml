@@ -61,26 +61,13 @@
       attributes:
         today: "{{ lines.today }}"
         tomorrow: "{{ lines.tomorrow }}"
-- trigger:
-    - trigger: time_pattern
-      minutes: "/15"
-    - trigger: homeassistant
-      event: start
-  action:
-    - variables:
-        weather_entity: weather.forecast_home
-    - action: weather.get_forecasts
-      target:
-        entity_id: "{{ weather_entity }}"
-      data:
-        type: daily
-      response_variable: daily_outlook
-  sensor:
+- sensor:
     - name: Display Outside
       unique_id: display_outside
       unit_of_measurement: "°C"
-      state: "{{ state_attr(weather_entity, 'temperature') }}"
+      state: "{{ states('sensor.zurich_temperature') }}"
+      availability: "{{ has_value('sensor.zurich_temperature') }}"
       attributes:
-        humidity: "{{ state_attr(weather_entity, 'humidity') }}"
-        high: "{{ daily_outlook[weather_entity].forecast[0].temperature | default('unknown') }}"
-        low: "{{ daily_outlook[weather_entity].forecast[0].templow | default('unknown') }}"
+        humidity: "{{ states('sensor.zurich_humidity') | float(none) }}"
+        high: "{{ states('sensor.zurich_high_temperature_today') | float(none) }}"
+        low: "{{ states('sensor.zurich_low_temperature_today') | float(none) }}"
